@@ -1,13 +1,43 @@
 @import "tailwindcss";
 
+.arabic-font {
+  font-family: "Noto Sans Arabic", "Geist Sans", system-ui, -apple-system,
+    sans-serif;
+  font-feature-settings: "liga" 1, "kern" 1;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
 }
 
+/* globals.css */
+
+@theme {
+  /* --color-primary: #03278a; Navy Dark */
+  --color-primary: #043d9c; /* Navy Dark */
+  /* --color-primary-light: #0000ff; */
+  --color-primary-light: #1d5dec;
+
+  --color-hover: #0051ff;
+  --color-hover-dark: #0034c4;
+
+  --color-accent: #ffc107; /* Teal bright */
+  --color-accent-dark: #ecb205;
+
+  --color-background: #ecf0f1; /* Light gray */
+  --color-surface: #ffffff; /* For cards */
+
+  --color-text: #2c3e50;
+  --color-text-light: #34495e;
+
+  --color-text-lighter-gray: #e5e7eb;
+  --color-text-light-gray: #d1d5dc;
+}
+
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  /* --color-background: var(--background);
+  --color-foreground: var(--foreground) */
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -15,12 +45,65 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
-    --foreground: #ededed;
+    --foreground: #f4f6f7;
+  }
+}
+@layer base {
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  input[type="number"] {
+    -moz-appearance: textfield;
   }
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--color-background);
+  color: var(--color-text);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+.container {
+  padding-left: 2.5rem; /* px-10 = 40px (2.5rem) */
+  padding-right: 2.5rem;
+}
+
+@media (min-width: 768px) {
+  /* md breakpoint */
+  .container {
+    padding-left: 3.5rem; /* px-14 = 56px (3.5rem) */
+    padding-right: 3.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  /* lg breakpoint */
+  .container {
+    padding-left: 7rem; /* px-28 = 112px (7rem) */
+    padding-right: 7rem;
+  }
+}
+
+.custom-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+
+@media (max-width: 640px) {
+  .custom-scroll::-webkit-scrollbar {
+    height: 3px;
+  }
+}
+
+.custom-scroll::-webkit-scrollbar-thumb {
+  background-color: darkgrey;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.custom-scroll::-webkit-scrollbar-track {
+  background-color: #f1f1f1;
+  border-radius: 10px;
 }
