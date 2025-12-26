@@ -23,8 +23,6 @@ const LegendList = ({ data }) => (
 );
 
 export default function CategoriesPieChart({ data }) {
-  console.log(data);
-
   const total = data && data.reduce((a, b) => a + b.value, 0);
 
   return (

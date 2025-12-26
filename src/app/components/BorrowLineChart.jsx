@@ -12,7 +12,6 @@ import {
 } from "recharts";
 
 export default function BorrowLineChart({ data }) {
-  console.log(data);
   return (
     <div className="bg-white rounded-2xl border-gray-200 shadow-sm p-6">
       {/* Title */}

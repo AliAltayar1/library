@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import LoadingSpinner from "@/app/UI/LoadingSpinner";
 import { useAuth } from "@/app/components/AuthContext";
+import { setToken } from "../../../../lib/getToken";
 
 const Login = () => {
   const [isVisable, setIsVisable] = useState({
@@ -15,20 +16,21 @@ const Login = () => {
   });
 
   const [userData, setUserData] = useState({
-    username: "",
+    identifier: "",
     password: "",
   });
+
   const [loading, setLoading] = useState(false);
-
   const router = useRouter();
-
   const { checkAuth } = useAuth();
-
+  const [isRememberMe, setIsRememberMe] = useState(false);
   const loginFn = async () => {
     setLoading(true);
     try {
       const data = await login(userData);
-      localStorage.setItem("token", data.status.token);
+
+      setToken(data.status.token, isRememberMe);
+
       await checkAuth();
       toast.success("تم تسجيل الدخول بنجاح");
       router.push("/");
@@ -73,21 +75,26 @@ const Login = () => {
 
         <div className="flex flex-col gap-y-5 md:min-w-[500px]">
           <div>
-            <label htmlFor="email" className="text-blue-950 font-semibold ">
-              عنوان البريد الإلكتروني
+            <label htmlFor="username" className="text-blue-950 font-semibold ">
+              اسم المستخدم او البريد الالكتروني{" "}
             </label>
             <div className="relative mt-1">
               <input
                 type="text"
-                id="email"
-                placeholder="أدخل عنوان بريدك الإلكتروني"
+                id="username"
+                placeholder="ex: demo or demo@mail.com"
                 className="ps-8 border border-gray-300 rounded-md shadow p-2 w-full focus:outline-3 outline-blue-400 transition-all duration-100"
                 onChange={(e) => {
-                  setUserData({ ...userData, username: e.target.value });
+                  setUserData({
+                    ...userData,
+                    identifier: e.target.value,
+                  });
                 }}
-                value={userData.username}
+                required
+                value={userData.identifier}
               />
-              <Mail
+              {console.log(userData)}
+              <User
                 size={18}
                 color="gray"
                 className=" absolute top-2.5 right-2"
@@ -103,12 +110,13 @@ const Login = () => {
               <input
                 type={`${isVisable.pass ? "text" : "password"}`}
                 id="password"
-                placeholder="إنشاء كلمة مرور"
+                placeholder="ادخل كلمة المرور"
                 className="ps-8 border border-gray-300 rounded-md shadow p-2 w-full focus:outline-3 outline-blue-400 transition-all duration-100"
                 onChange={(e) => {
                   setUserData({ ...userData, password: e.target.value });
                 }}
                 value={userData.password}
+                required
               />
               <Lock
                 size={18}
@@ -135,29 +143,24 @@ const Login = () => {
             </div>
           </div>
         </div>
-
-        <div className="flex items-center justify-between gap-x-3 my-8">
-          <div className="flex items-center gap-x-2">
-            <input
-              type="checkbox"
-              name="remember"
-              id="remember"
-              className="w-4 h-4 cursor-pointer accent-blue-950"
-            />
-            <label
-              htmlFor="remember"
-              className="text-blue-950 font-semibold cursor-pointer select-none"
-            >
-              تذكرني
-            </label>
-          </div>
-          <Link
-            href={"/forgetpassword"}
-            className="text-blue-950 text-sm hover:underline"
+        <div
+          className="flex items-center gap-x-2 mt-4 mb-6 w-fit"
+          onClick={() => setIsRememberMe(!isRememberMe)}
+        >
+          <input
+            type="checkbox"
+            name="remember"
+            id="remember"
+            className="w-4 h-4 cursor-pointer accent-blue-950"
+          />
+          <label
+            htmlFor="remember"
+            className="text-blue-950 font-semibold cursor-pointer select-none"
           >
-            نسيت كلمة السر؟
-          </Link>
+            تذكرني
+          </label>
         </div>
+        {/* <div className="flex items-center justify-between gap-x-3 my-8"></div> */}
 
         {loading && <LoadingSpinner />}
         {!loading && (
@@ -168,7 +171,7 @@ const Login = () => {
 
         <p className="text-gray-500 text-center mt-8">
           ليس لديك حساب؟
-          <Link href={"/login"} className="text-blue-950 font-semibold">
+          <Link href={"/register"} className="text-blue-950 font-semibold">
             {" "}
             سجل هنا
           </Link>

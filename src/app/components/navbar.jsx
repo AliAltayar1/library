@@ -22,9 +22,6 @@ const Navbar = () => {
   const pathname = usePathname();
   const { user, loading, logoutchk } = useAuth();
 
-  console.log(user);
-  console.log(loading);
-
   const navLinks = [
     { href: "/", label: "الرئيسية", icon: BookOpen },
     { href: "/books", label: "الكتب", icon: BookOpen },
@@ -200,7 +197,7 @@ const Navbar = () => {
             <Link
               href={"/login"}
               onClick={() => logoutFn()}
-              className="hover:bg-accent hover:text-white transition-colors duration-150 flex items-center gap-2 py-2 px-3 border border-gray-300 shadow rounded-lg justify-center"
+              className="mt-5 hover:bg-accent hover:text-white transition-colors duration-150 flex items-center gap-2 py-2 px-3 border border-gray-300 shadow rounded-lg justify-center"
             >
               <LogOut />
               تسجيل الخروج

@@ -11,6 +11,7 @@ import { register } from "../../../../lib/user/register";
 import LoadingSpinner from "@/app/UI/LoadingSpinner";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/components/AuthContext";
+import { setToken } from "../../../../lib/getToken";
 
 // ============================================================================
 // REGISTER COMPONENT
@@ -63,7 +64,7 @@ const Register = () => {
       const data = await register(userData);
       await checkAuth();
       toast.success("تم تسجيل الحساب بنجاح");
-      localStorage.setItem("token", data.token);
+      setToken(data.status.token);
       router.push("/");
     } catch (error) {
       if (error.response?.status === 400 && error.response?.data) {

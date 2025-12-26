@@ -12,14 +12,8 @@ const api = axios.create({
 
 export async function getBooks(categoryQry) {
   const url = categoryQry ? `/api/books?category=${categoryQry}` : `/api/books`;
-  // try {
   const res = await api.get(url);
   return res.data;
-  // } catch (error) {
-  //   console.log(error?.message || "Error while fetching books");
-
-  //   throw new Error(error?.message || "Error while fetching books");
-  // }
 }
 
 export async function getBook(id) {

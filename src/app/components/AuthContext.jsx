@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { verifyToken } from "../../../lib/user/verifyToken";
+import { clearToken, getToken } from "../../../lib/getToken";
 
 const AuthContext = createContext(null);
 
@@ -10,7 +11,7 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   const checkAuth = async () => {
-    const token = localStorage.getItem("token");
+    const token = getToken();
 
     if (!token) {
       setUser(null);
@@ -27,7 +28,7 @@ export function AuthProvider({ children }) {
         isAdmin: res.is_admin,
       });
     } catch {
-      localStorage.removeItem("token");
+      clearToken();
       setUser(null);
     } finally {
       setLoading(false);
@@ -40,7 +41,7 @@ export function AuthProvider({ children }) {
 
   // 🔑 logout حقيقي
   const logoutchk = () => {
-    setUser(null); // 👈 هذا هو المفتاح
+    setUser(null);
   };
 
   return (

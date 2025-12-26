@@ -2,11 +2,13 @@ import axios from "axios";
 import api from "../api";
 
 export async function login(userData) {
-  const { username, password } = userData;
-  console.log("first");
+  const { identifier, password } = userData;
+
+  console.log(identifier);
+  console.log(password);
 
   const res = await api.post(`/accounts/login`, {
-    username,
+    identifier,
     password,
   });
   return res.data;

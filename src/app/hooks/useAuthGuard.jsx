@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { verifyToken } from "../../../lib/user/verifyToken";
+import { clearToken, getToken } from "../../../lib/getToken";
 
 export default function useAuthGuard(options) {
   const router = useRouter();
@@ -10,7 +11,7 @@ export default function useAuthGuard(options) {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const token = localStorage.getItem("token");
+      const token = getToken();
 
       if (!token) {
         router.replace("/login");
@@ -30,7 +31,7 @@ export default function useAuthGuard(options) {
           return;
         }
       } catch (err) {
-        localStorage.removeItem("token");
+        clearToken();
         router.replace("/login");
       } finally {
         setChecking(false);

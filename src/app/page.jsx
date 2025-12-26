@@ -59,8 +59,6 @@ export default function Home() {
     }
   };
 
-  console.log(categories);
-
   useEffect(() => {
     fetchBooks();
     getCategoriesFn();
@@ -214,12 +212,12 @@ export default function Home() {
 
                     <span className="font-medium mb-2">{book.title}</span>
                     <span className="text-gray-500 text-start">
-                      {book.author?.name}
+                      {book.author?.name || "لا يوجد مؤلف"}
                     </span>
 
                     <div className="flex justify-between w-full items-center my-5">
                       <span className="bg-primary text-gray-50 px-2 py-1 rounded">
-                        {book.category?.name}
+                        {book.category?.name || "لا يوجد فئة"}
                       </span>
                       <span
                         className={`${
@@ -264,10 +262,13 @@ export default function Home() {
           انضم إلى آلاف القراء الذين اكتشفوا كتابهم المفضل التالي من خلال
           منصتنا.
         </p>
-        <Button
-          text="ابدأ اليوم"
-          cn="bg-accent text-xl font-medium hover:bg-accent-dark px-8"
-        />
+
+        <Link
+          href="/books"
+          className="rounded-lg cursor-pointer transform transition-all duration-300  whitespace-nowrap text-white bg-accent text-xl font-medium hover:bg-accent-dark px-8"
+        >
+          ابدأ اليوم
+        </Link>
       </section>
     </div>
   );
