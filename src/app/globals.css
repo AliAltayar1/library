@@ -1,94 +1,304 @@
 @import "tailwindcss";
 
 .arabic-font {
-  font-family: "Noto Sans Arabic", "Geist Sans", system-ui, -apple-system,
+  font-family:
+    "Noto Sans Arabic",
+    "Geist Sans",
+    system-ui,
+    -apple-system,
     sans-serif;
-  font-feature-settings: "liga" 1, "kern" 1;
+  font-feature-settings:
+    "liga" 1,
+    "kern" 1;
 }
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #faf8f5;
+  --foreground: #0f1b3c;
 }
 
-/* globals.css */
-
+/* ─── Design Tokens ─────────────────────────────────────── */
 @theme {
-  /* --color-primary: #03278a; Navy Dark */
-  --color-primary: #043d9c; /* Navy Dark */
-  /* --color-primary-light: #0000ff; */
-  --color-primary-light: #1d5dec;
+  /* Core brand colors */
+  --color-primary: #0f1b3c; /* Deep Navy */
+  --color-primary-light: #1a2f5e; /* Mid Navy  */
 
-  --color-hover: #0051ff;
-  --color-hover-dark: #0034c4;
+  /* Accent / gold */
+  --color-accent: #d4930a;
+  --color-accent-dark: #b87c08;
+  --color-accent-light: #f6c54e;
 
-  --color-accent: #ffc107; /* Teal bright */
-  --color-accent-dark: #ecb205;
+  /* Hover states */
+  --color-hover: #1d3a72;
+  --color-hover-dark: #0f2251;
 
-  --color-background: #ecf0f1; /* Light gray */
-  --color-surface: #ffffff; /* For cards */
+  /* Surfaces */
+  --color-background: #faf8f5; /* Warm parchment */
+  --color-surface: #ffffff;
+  --color-surface-alt: #f3efe8; /* Slightly toasted card bg */
 
-  --color-text: #2c3e50;
-  --color-text-light: #34495e;
-
+  /* Text */
+  --color-text: #1a1a2e;
+  --color-text-light: #4a4a6a;
+  --color-text-muted: #8888aa;
   --color-text-lighter-gray: #e5e7eb;
   --color-text-light-gray: #d1d5dc;
 }
 
 @theme inline {
-  /* --color-background: var(--background);
-  --color-foreground: var(--foreground) */
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #f4f6f7;
+/* ─── Keyframe Animations ───────────────────────────────── */
+@keyframes fadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
   }
-}
-@layer base {
-  input[type="number"]::-webkit-inner-spin-button,
-  input[type="number"]::-webkit-outer-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-  }
-
-  input[type="number"] {
-    -moz-appearance: textfield;
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes floatY {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-14px);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+@keyframes glowPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 18px 4px rgba(212, 147, 10, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 30px 8px rgba(212, 147, 10, 0.55);
+  }
+}
+
+@keyframes scalePop {
+  0% {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes particleDrift {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translate(8px, -12px) rotate(180deg);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(-4px, -24px) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+/* ─── Animation Utilities ───────────────────────────────── */
+.animate-fadeSlideUp {
+  animation: fadeSlideUp 0.7s ease both;
+}
+.animate-fadeIn {
+  animation: fadeIn 0.5s ease both;
+}
+.animate-floatY {
+  animation: floatY 3.6s ease-in-out infinite;
+}
+.animate-shimmer {
+  animation: shimmer 2.4s linear infinite;
+}
+.animate-glowPulse {
+  animation: glowPulse 2.2s ease-in-out infinite;
+}
+.animate-scalePop {
+  animation: scalePop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+}
+
+.delay-100 {
+  animation-delay: 0.1s;
+}
+.delay-200 {
+  animation-delay: 0.2s;
+}
+.delay-300 {
+  animation-delay: 0.3s;
+}
+.delay-400 {
+  animation-delay: 0.4s;
+}
+.delay-500 {
+  animation-delay: 0.5s;
+}
+.delay-600 {
+  animation-delay: 0.6s;
+}
+
+/* ─── Gradient Text ─────────────────────────────────────── */
+.gradient-text {
+  background: linear-gradient(135deg, #f6c54e 0%, #d4930a 50%, #f9a825 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmer 3s linear infinite;
+}
+
+/* ─── Glass Card ────────────────────────────────────────── */
+.glass-card {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow: 0 8px 32px rgba(15, 27, 60, 0.1);
+}
+
+/* ─── Book Card ─────────────────────────────────────────── */
+.book-card {
+  background: #fff;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(15, 27, 60, 0.09);
+  transition:
+    transform 0.32s cubic-bezier(0.25, 0.8, 0.25, 1),
+    box-shadow 0.32s cubic-bezier(0.25, 0.8, 0.25, 1);
+  position: relative;
+}
+
+.book-card:hover {
+  transform: translateY(-8px) scale(1.01);
+  box-shadow: 0 20px 48px rgba(15, 27, 60, 0.18);
+}
+
+.book-card .cover-wrap {
+  position: relative;
+  overflow: hidden;
+}
+
+.book-card .cover-wrap img {
+  transition: transform 0.45s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.book-card:hover .cover-wrap img {
+  transform: scale(1.07);
+}
+
+.book-card .cover-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    rgba(15, 27, 60, 0.55) 0%,
+    transparent 55%
+  );
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+
+.book-card:hover .cover-overlay {
+  opacity: 1;
+}
+
+/* ─── Category Pill ─────────────────────────────────────── */
+.category-pill {
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease,
+    background 0.25s ease;
+}
+
+.category-pill:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(15, 27, 60, 0.16);
+}
+
+/* ─── Section Headers ───────────────────────────────────── */
+.section-title {
+  position: relative;
+  display: inline-block;
+}
+
+.section-title::after {
+  content: "";
+  position: absolute;
+  bottom: -8px;
+  right: 0;
+  width: 60px;
+  height: 4px;
+  background: linear-gradient(90deg, #d4930a, #f6c54e);
+  border-radius: 4px;
+}
+
+/* ─── Global Body ───────────────────────────────────────── */
 body {
   background: var(--color-background);
   color: var(--color-text);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: "Noto Sans Arabic", Arial, Helvetica, sans-serif;
 }
 
+/* ─── Container ─────────────────────────────────────────── */
 .container {
-  padding-left: 2.5rem; /* px-10 = 40px (2.5rem) */
+  min-width: 100%;
+  padding-left: 2.5rem;
   padding-right: 2.5rem;
 }
 
 @media (min-width: 768px) {
-  /* md breakpoint */
   .container {
-    padding-left: 3.5rem; /* px-14 = 56px (3.5rem) */
+    padding-left: 3.5rem;
     padding-right: 3.5rem;
   }
 }
 
-@media (min-width: 1024px) {
-  /* lg breakpoint */
+@media (min-width: 1200px) {
   .container {
-    padding-left: 7rem; /* px-28 = 112px (7rem) */
+    padding-left: 7rem;
     padding-right: 7rem;
   }
 }
 
+/* ─── Scrollbar ─────────────────────────────────────────── */
 .custom-scroll::-webkit-scrollbar {
   height: 6px;
+}
+.custom-scroll::-webkit-scrollbar-thumb {
+  background-color: #d4930a;
+  border-radius: 10px;
+}
+.custom-scroll::-webkit-scrollbar-track {
+  background-color: #f1f1f1;
+  border-radius: 10px;
 }
 
 @media (max-width: 640px) {
@@ -97,13 +307,22 @@ body {
   }
 }
 
-.custom-scroll::-webkit-scrollbar-thumb {
-  background-color: darkgrey;
-  border-radius: 10px;
-  cursor: pointer;
+/* ─── Number Inputs ─────────────────────────────────────── */
+@layer base {
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
 }
 
-.custom-scroll::-webkit-scrollbar-track {
-  background-color: #f1f1f1;
-  border-radius: 10px;
+/* ─── Hero particles ────────────────────────────────────── */
+.particle {
+  position: absolute;
+  border-radius: 50%;
+  animation: particleDrift linear infinite;
+  pointer-events: none;
 }

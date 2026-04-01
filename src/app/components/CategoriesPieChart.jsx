@@ -4,10 +4,7 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { stringToColor } from "../utils/colorsGenerator";
 
 const LegendList = ({ data }) => (
-  <div
-    className="flex flex-wrap md:flex-col md:px-10 justify-center gap-3 text-right  "
-    style={{ direction: "rtl" }}
-  >
+  <div className="flex flex-wrap md:flex-col md:px-10 justify-center gap-3 text-right ">
     {data.map((item, idx) => (
       <div key={item.name} className="flex items-center gap-1   ">
         <span

@@ -17,116 +17,160 @@
 
 import React, { useState } from "react";
 
+import {
+  Trophy,
+  BarChart3,
+  BookOpen,
+  Users,
+  RotateCcw,
+  ShieldCheck,
+  ChevronLeft,
+  Layers,
+  User,
+  CalendarDays,
+} from "lucide-react";
+
 import AdminStats from "../components/adminStats";
 import AdminManageBooks from "../components/adminManageBooks";
 import AdminManageUser from "../components/adminManageUsers";
 import AdminManageBorrowing from "../components/adminManageBorrowing";
+import AdminManageCategories from "../components/adminManageCategories";
+import AdminManageAuthors from "../components/adminManageAuthors";
+import AdminManageActivities from "../components/adminManageActivities";
+import { NAVY, NAVY2, GOLD, GOLD2, PARCH } from "@/lib/constants/colors";
 
+/* ─── Tab definitions ────────────────────────────────────────── */
+const TABS = [
+  { id: "statistics", label: "الإحصائيات", icon: BarChart3 },
+  { id: "manageBooks", label: "إدارة الكتب", icon: BookOpen },
+  { id: "manageUsers", label: "إدارة المستخدمين", icon: Users },
+  { id: "manageBorrowing", label: "إدارة الاستعارات", icon: RotateCcw },
+  { id: "manageCategories", label: "إدارة الفئات", icon: Layers },
+  { id: "manageAuthors", label: "إدارة المؤلفين", icon: User },
+  { id: "manageActivities", label: "إدارة الأنشطة", icon: CalendarDays },
+];
+
+/* ═══════════════════════════════════════════════════════════════
+   Main Admin Dashboard
+   ═══════════════════════════════════════════════════════════════ */
 const Admin = () => {
-  // ============ State Management ============
-
-  /**
-   * Active tab state - controls which admin panel is currently displayed
-   * @type {string}
-   * @values "statistics" | "manageBooks" | "manageUsers" | "manageBorrowing"
-   * @default "statistics"
-   */
   const [tabs, setTabs] = useState("statistics");
 
-  // ============ JSX Render ============
-
   return (
-    <section className="admin-dashboard px-10 my-10">
-      {/* ============ Dashboard Header ============ */}
-      <div className="heading flex justify-center sm:justify-between items-center gap-2 gap-x-5 flex-wrap ">
-        <div className="text-center sm:text-start">
-          {/* Main dashboard title */}
-          <h1 className="text-4xl font-semibold text-blue-950 mb-1">
-            لوحة التحكم الإدارية
-          </h1>
-          {/* Dashboard description */}
-          <h3 className="text-gray-400 font-medium">
-            إدارة الكتب والمستخدمين والاستعارات والإحصائيات
-          </h3>
-        </div>
-      </div>
+    <div dir="rtl" className="overflow-x-hidden bg-background min-h-screen">
+      {/* ══════════════════════════════════════════════════════════
+          1. ADMIN HERO BANNER
+          ══════════════════════════════════════════════════════════ */}
+      <section
+        className="relative overflow-hidden py-12 px-4"
+        style={{
+          background: `linear-gradient(135deg, ${NAVY} 0%, ${NAVY2} 60%, #0c1628 100%)`,
+        }}
+      >
+        {/* Glow blobs */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background:
+              "radial-gradient(ellipse 50% 40% at 80% 50%, rgba(212,147,10,0.10) 0%, transparent 70%), " +
+              "radial-gradient(ellipse 35% 30% at 15% 60%, rgba(79,172,254,0.07) 0%, transparent 65%)",
+          }}
+        />
 
-      {/* ============ Tabbed Interface Section ============ */}
-      <section className="quick-tabs mt-12">
-        {/* Tab Navigation Buttons */}
-        <div className="tabs custom-scroll flex justify-between font-semibold text-blue-950 overflow-x-auto p-2">
-          {/* Statistics Tab Button */}
-          <button
-            onClick={() => {
-              setTabs("statistics");
+        <div className="container relative z-10 flex flex-col lg:flex-row items-center gap-8 lg:gap-12">
+          {/* Shield icon badge */}
+          <div
+            className="w-20 h-20 rounded-2xl flex-shrink-0 flex items-center justify-center text-primary shadow-[0_0_40px_rgba(212,147,10,0.40)]"
+            style={{
+              background: `linear-gradient(135deg, ${GOLD} 0%, ${GOLD2} 100%)`,
             }}
-            className={`${
-              tabs === "statistics"
-                ? "transition-all duration-100  rounded-xl shadow-[0px_2px_3px_0px_rgba(0,0,0,0.09)]"
-                : ""
-            } cursor-pointer px-4 py-1.5 whitespace-nowrap flex-1`}
           >
-            الإحصائيات
-          </button>
+            <ShieldCheck className="w-10 h-10" />
+          </div>
 
-          {/* Manage Books Tab Button */}
-          <button
-            onClick={() => {
-              setTabs("manageBooks");
-            }}
-            className={`${
-              tabs === "manageBooks"
-                ? "transition-all duration-100  rounded-xl shadow-[0px_2px_3px_0px_rgba(0,0,0,0.09)]"
-                : ""
-            } cursor-pointer px-4 py-1.5 whitespace-nowrap flex-1`}
-          >
-            إدارة الكتب
-          </button>
-
-          {/* Manage Users Tab Button */}
-          <button
-            onClick={() => {
-              setTabs("manageUsers");
-            }}
-            className={`${
-              tabs === "manageUsers"
-                ? " transition-all duration-100  rounded-xl  shadow-[0px_2px_3px_0px_rgba(0,0,0,0.09)]"
-                : ""
-            } cursor-pointer px-4 py-1.5 flex-1 whitespace-nowrap`}
-          >
-            إدارة المستخدمين
-          </button>
-
-          {/* Manage Borrowing Tab Button */}
-          <button
-            onClick={() => {
-              setTabs("manageBorrowing");
-            }}
-            className={`${
-              tabs === "manageBorrowing"
-                ? " transition-all duration-100  rounded-xl  shadow-[0px_2px_3px_0px_rgba(0,0,0,0.09)]"
-                : ""
-            } cursor-pointer px-4 py-1.5 flex-1 whitespace-nowrap`}
-          >
-            إدارة الاستعارات
-          </button>
+          {/* Title & description */}
+          <div className="flex-1 text-center lg:text-right">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold mb-3 bg-accent/15 text-accent-light border border-accent/30">
+              <ShieldCheck className="w-3 h-3" />
+              مشرف النظام
+            </span>
+            <h1 className="text-3xl font-black text-white leading-tight">
+              لوحة التحكم الإدارية
+            </h1>
+            <p className="mt-1 text-sm text-white/60">
+              إدارة الكتب والمستخدمين والاستعارات والإحصائيات بشكل مركزي
+            </p>
+          </div>
         </div>
 
-        {/* ============ Tab Content - Conditional Rendering ============ */}
-
-        {/* Statistics Tab Content - Dashboard overview with charts and metrics */}
-        {tabs === "statistics" && <AdminStats />}
-
-        {/* Manage Books Tab Content - CRUD operations for books catalog */}
-        {tabs === "manageBooks" && <AdminManageBooks />}
-
-        {/* Manage Users Tab Content - User accounts administration */}
-        {tabs === "manageUsers" && <AdminManageUser />}
-
-        {/* Manage Borrowing Tab Content - Borrowing requests and returns management */}
-        {tabs === "manageBorrowing" && <AdminManageBorrowing />}
+        {/* Diagonal clip */}
+        <div className="absolute bottom-0 left-0 right-0 leading-[0]">
+          <svg
+            viewBox="0 0 1440 60"
+            xmlns="http://www.w3.org/2000/svg"
+            preserveAspectRatio="none"
+            className="w-full block h-[60px]"
+          >
+            <path d="M0,60 L1440,0 L1440,60 Z" className="fill-background" />
+          </svg>
+        </div>
       </section>
-    </section>
+
+      {/* ══════════════════════════════════════════════════════════
+          2. QUICK-NAV CARDS (visual shortcut buttons)
+          ══════════════════════════════════════════════════════════ */}
+      <section className="container py-10">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {TABS.map(({ id, label, icon: Icon }) => {
+            const active = tabs === id;
+            return (
+              <button
+                key={id}
+                onClick={() => setTabs(id)}
+                className={`group relative flex flex-col items-center gap-3 p-5 rounded-2xl border transition-all duration-300 hover:-translate-y-1 hover:shadow-lg cursor-pointer text-center ${active ? "border-accent/40 shadow-[0_8px_32px_rgba(15,27,60,0.18)]" : "bg-white border-[#e2e8f0] border-[1.5px]"}`}
+                style={{
+                  background: active
+                    ? `linear-gradient(135deg, ${NAVY} 0%, ${NAVY2} 100%)`
+                    : "white",
+                }}
+              >
+                <div
+                  className={`w-11 h-11 rounded-xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110 ${active ? "bg-accent/20" : "bg-primary/10"}`}
+                >
+                  <Icon
+                    className={`w-5 h-5 ${active ? "text-accent-light" : "text-primary-light"}`}
+                  />
+                </div>
+                <span
+                  className={`text-sm font-bold ${active ? "text-white" : "text-primary"}`}
+                >
+                  {label}
+                </span>
+                {active && (
+                  <span className="absolute top-3 left-3 w-2 h-2 rounded-full bg-accent-light" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════
+          3. TABBED CONTENT AREA
+          ══════════════════════════════════════════════════════════ */}
+      <section className="container pb-6">
+        {/* Tab content wrapper */}
+        <div className="rounded-2xl p-6 bg-white border-[1.5px] border-[#e2e8f0] shadow-[0_2px_24px_rgba(15,27,60,0.05)]">
+          {tabs === "statistics" && <AdminStats />}
+          {tabs === "manageBooks" && <AdminManageBooks />}
+          {tabs === "manageUsers" && <AdminManageUser />}
+          {tabs === "manageBorrowing" && <AdminManageBorrowing />}
+          {tabs === "manageCategories" && <AdminManageCategories />}
+          {tabs === "manageAuthors" && <AdminManageAuthors />}
+          {tabs === "manageActivities" && <AdminManageActivities />}
+        </div>
+      </section>
+    </div>
   );
 };
 

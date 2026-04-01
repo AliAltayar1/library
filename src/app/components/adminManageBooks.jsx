@@ -11,19 +11,11 @@
  * - Real-time loading states and error handling
  * - Dynamic author and category selection from database
  *
- * Features:
- * - Modal form supports both add and edit modes (single form, dual purpose)
- * - Form validation and data persistence
- * - Visual distinction for archived books (grayed out)
- * - Confirmation dialogs for destructive actions
- * - Toast notifications for all operations
- *
  * @returns {JSX.Element} The books management interface with table and modal form
  */
 
-import { Plus, X } from "lucide-react";
-
 import React, { useEffect, useState } from "react";
+import { Plus, X, Pencil, BookOpen, ScrollText, Trash2 } from "lucide-react";
 import { getBooks } from "../../../lib/admin/getBooks";
 import { editBookApi } from "../../../lib/admin/editBook";
 import { addBookApi } from "../../../lib/admin/addBook";
@@ -31,32 +23,24 @@ import { getCategory } from "../../../lib/admin/getCategory";
 import { getAuthor } from "../../../lib/admin/getAuthor";
 import { archiveBook } from "../../../lib/admin/archiveBook";
 import { unarchiveBook } from "../../../lib/admin/unarchiveBook";
+import { getAdminBookSummaries } from "../../../lib/admin/getBookSummaries";
+import { deleteBookSummary } from "../../../lib/admin/deleteBookSummary";
 import ArchiveUnarchiveBook from "../UI/ArchiveUnarchiveBtn";
-
 import LoadingSpinner from "../UI/LoadingSpinner";
 import { toast } from "sonner";
+import { NAVY, NAVY2, GOLD, GOLD2 } from "@/lib/constants/colors";
+
+/* ─── Input shared className ────────────────────────────────── */
+const inputCls =
+  "mt-1 py-2.5 px-3 border border-gray-200 rounded-xl outline-none " +
+  "focus:border-blue-400 focus:ring-2 focus:ring-blue-100 " +
+  "transition-all duration-200 text-gray-800 text-sm w-full";
 
 const AdminManageBooks = () => {
   // ============ State Management ============
-
-  /**
-   * Edit mode flag - determines if form is for editing existing book or adding new one
-   * @type {boolean}
-   * @default false (add mode)
-   */
   const [isEdit, setIsEdit] = useState(false);
-
-  /**
-   * Modal visibility state - controls whether add/edit form is displayed
-   * @type {boolean}
-   */
   const [openForm, setOpenForm] = useState(false);
 
-  /**
-   * Book form data state - stores all book fields for add/edit operations
-   * Contains complete book information including IDs for relationships
-   * @type {Object}
-   */
   const [bookForm, setBookForm] = useState({
     id: "",
     title: "",
@@ -69,45 +53,19 @@ const AdminManageBooks = () => {
     pages: "",
   });
 
-  /**
-   * Categories state - stores all available book categories for dropdown
-   * @type {Array<{id: string, name: string}>}
-   */
-  const [categories, setCategories] = useState([{ id: "", name: "" }]);
-
-  /**
-   * Authors state - stores all available authors for dropdown selection
-   * @type {Array<{id: string, name: string}>}
-   */
-  const [authors, setAuthors] = useState([{ id: "", name: "" }]);
-
-  /**
-   * Books list state - stores complete array of books from database
-   * @type {Array}
-   */
+  const [categories, setCategories] = useState([]);
+  const [authors, setAuthors] = useState([]);
   const [books, setBooks] = useState([]);
-
-  /**
-   * Loading state for books fetch operation
-   * @type {boolean}
-   */
   const [booksLoading, setBooksLoading] = useState(false);
-
-  /**
-   * Error state for books fetch operation
-   * @type {string|null}
-   */
   const [booksError, setBooksError] = useState(null);
 
-  // ============ Form Management Functions ============
+  // ─── Summaries modal state
+  const [summariesModal, setSummariesModal] = useState(null); // { bookId, title }
+  const [summaries, setSummaries] = useState([]);
+  const [summariesLoading, setSummariesLoading] = useState(false);
+  const [deletingSummaryId, setDeletingSummaryId] = useState(null);
 
-  /**
-   * Resets the book form to its initial empty state and closes the modal
-   * Used after successful submission or when user cancels
-   *
-   * @function resetForm
-   * @returns {void}
-   */
+  // ============ Form Helpers ============
   function resetForm() {
     setBookForm({
       id: "",
@@ -124,16 +82,7 @@ const AdminManageBooks = () => {
     setIsEdit(false);
   }
 
-  /**
-   * Populates the form with existing book data for editing
-   * Transforms book object structure to match form state structure
-   * Extracts nested IDs (author.id, category.id) for dropdown selections
-   *
-   * @function editBook
-   * @param {Object} book - The book object to edit
-   * @returns {void}
-   */
-  function editBook(book) {
+  function openEdit(book) {
     setBookForm({
       id: book.id || null,
       title: book.title,
@@ -145,45 +94,18 @@ const AdminManageBooks = () => {
       publication_year: book.publication_year || "0000",
       pages: book.pages || 0,
     });
+    setIsEdit(true);
+    setOpenForm(true);
   }
 
-  /**
-   * Handles both add and edit operations based on isEdit flag
-   * Calls appropriate API endpoint and refreshes books list on success
-   *
-   * @async
-   * @function addOrEditBook
-   * @returns {Promise<void>}
-   */
-  async function addOrEditBook() {
-    try {
-      if (isEdit) {
-        // Update existing book
-        await editBookApi(bookForm);
-        toast.success("تم تعديل الكتاب بنجاح");
-      } else {
-        // Add new book
-        await addBookApi(bookForm);
-        toast.success("تمت اضافة الكتاب بنجاح");
-      }
-
-      // Refresh books list to show changes
-      getBooksFn();
-    } catch (error) {
-      console.log(error.message);
-    }
+  function openAdd() {
+    resetForm();
+    setOpenForm(true);
   }
+
+  const patch = (key, val) => setBookForm((f) => ({ ...f, [key]: val }));
 
   // ============ API Functions ============
-
-  /**
-   * Fetches all books from the database including archived ones
-   * Updates books state with complete book objects including relationships
-   *
-   * @async
-   * @function getBooksFn
-   * @returns {Promise<void>}
-   */
   const getBooksFn = async () => {
     setBooksLoading(true);
     try {
@@ -196,86 +118,88 @@ const AdminManageBooks = () => {
     }
   };
 
-  /**
-   * Fetches all available book categories for dropdown selection
-   * Called once on component mount
-   *
-   * @async
-   * @function getCategoriesFn
-   * @returns {Promise<void>}
-   */
   const getCategoriesFn = async () => {
     try {
-      const category = await getCategory();
-      setCategories(category);
-    } catch (error) {
-      console.log(error.message);
+      setCategories(await getCategory());
+    } catch (e) {
+      console.log(e.message);
     }
   };
 
-  /**
-   * Fetches all authors for dropdown selection in book form
-   * Called once on component mount
-   *
-   * @async
-   * @function getAuthorsFn
-   * @returns {Promise<void>}
-   */
   const getAuthorsFn = async () => {
     try {
-      const author = await getAuthor();
-      setAuthors(author);
-    } catch (error) {
-      console.log(error.message);
+      setAuthors(await getAuthor());
+    } catch (e) {
+      console.log(e.message);
     }
   };
 
-  /**
-   * Unarchives a book, making it visible and borrowable again
-   * Refreshes books list to update UI with new status
-   *
-   * @async
-   * @function unarchiveBookFn
-   * @param {number} bookId - The ID of the book to unarchive
-   * @returns {Promise<void>}
-   */
+  const handleSubmit = async () => {
+    try {
+      if (isEdit) {
+        await editBookApi(bookForm);
+        toast.success("تم تعديل الكتاب بنجاح");
+      } else {
+        await addBookApi(bookForm);
+        toast.success("تمت إضافة الكتاب بنجاح");
+      }
+      resetForm();
+      getBooksFn();
+    } catch (error) {
+      toast.error("حدث خطأ: " + error.message);
+    }
+  };
+
   const unarchiveBookFn = async (bookId) => {
     try {
-      const res = await unarchiveBook(bookId);
-      // Refresh list to show updated archive status
+      await unarchiveBook(bookId);
       await getBooksFn();
-      toast.success("تم إلغاء الارشفة");
+      toast.success("تم إلغاء الأرشفة");
     } catch (error) {
-      toast.error("حدث خطأ اثناء إلغاء الارشفة " + error.message);
+      toast.error("حدث خطأ أثناء إلغاء الأرشفة: " + error.message);
     }
   };
 
-  /**
-   * Archives a book, hiding it from regular users while preserving data
-   * Refreshes books list to update UI with new status
-   *
-   * @async
-   * @function archiveBookFn
-   * @param {number} bookId - The ID of the book to archive
-   * @returns {Promise<void>}
-   */
   const archiveBookFn = async (bookId) => {
     try {
       await archiveBook(bookId);
-      // Refresh list to show updated archive status
       await getBooksFn();
-      toast.success("تمت الارشفة");
+      toast.success("تمت الأرشفة");
     } catch (error) {
-      toast.error("حدث خطأ اثناء الارشفة " + error.message);
+      toast.error("حدث خطأ أثناء الأرشفة: " + error.message);
+    }
+  };
+
+  const openSummariesModal = async (book) => {
+    console.log(book);
+    setSummariesModal({ bookId: book.id, title: book.title });
+    setSummaries([]);
+    setSummariesLoading(true);
+    try {
+      const data = await getAdminBookSummaries(book.id);
+      console.log(data);
+      setSummaries(Array.isArray(data) ? data : (data.results ?? []));
+    } catch (err) {
+      toast.error("تعذّر جلب الملخصات: " + err.message);
+    } finally {
+      setSummariesLoading(false);
+    }
+  };
+
+  const handleDeleteSummary = async (summaryId) => {
+    setDeletingSummaryId(summaryId);
+    try {
+      await deleteBookSummary(summariesModal.bookId, summaryId);
+      toast.success("تم حذف الملخص بنجاح");
+      setSummaries((prev) => prev.filter((s) => s.id !== summaryId));
+    } catch (err) {
+      toast.error("حدث خطأ: " + err.message);
+    } finally {
+      setDeletingSummaryId(null);
     }
   };
 
   // ============ Side Effects ============
-
-  /**
-   * Initial data fetch on component mount
-   * Loads books, categories, and authors for the interface
-   */
   useEffect(() => {
     getBooksFn();
     getCategoriesFn();
@@ -283,198 +207,237 @@ const AdminManageBooks = () => {
   }, []);
 
   // ============ JSX Render ============
-
   return (
     <div className="manage-books mt-10">
-      {/* ============ Add/Edit Book Modal Form ============ */}
-      {openForm && (
+      {/* ============ Summaries Modal ============ */}
+      {summariesModal && (
         <>
-          {/* Modal backdrop overlay */}
-          <div className="fixed inset-0 bg-black/50 z-40"></div>
-
-          {/* Modal dialog container */}
-          <div className="bg-white rounded-md p-10 flex flex-col gap-4 w-[90%] sm:w-[450px]  m-auto fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 max-h-[450px] overflow-y-auto">
-            {/* Modal header with close button and dynamic title */}
-            <div className="flex justify-between gap-3 flex-wrap items-center mb-6">
-              <X
-                onClick={() => {
-                  resetForm();
-                }}
-                className="cursor-pointer hover:text-gray-300"
-              />
-              <span className="font-semibold">
-                {isEdit ? "تعديل الكتاب" : "إضافة كتاب"}
-              </span>
+          <div
+            className="fixed inset-0 bg-black/50 z-40"
+            onClick={() => setSummariesModal(null)}
+          />
+          <div
+            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50
+                          bg-white rounded-2xl p-8 w-[90%] sm:w-[560px] shadow-2xl
+                          max-h-[80vh] overflow-y-auto"
+          >
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h2 className="text-lg font-bold text-primary">
+                  ملخصات الكتاب
+                </h2>
+                <p className="text-sm text-gray-400 mt-0.5 truncate max-w-[340px]">
+                  {summariesModal.title}
+                </p>
+              </div>
+              <button
+                onClick={() => setSummariesModal(null)}
+                className="p-1 rounded-lg hover:bg-gray-100 cursor-pointer"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
             </div>
 
-            {/* Book Title Input */}
-            <label htmlFor="book-name" className="flex flex-col gap-0.5">
-              العنوان
-              <input
-                type="text"
-                id="book-name"
-                placeholder="اسم الكتاب"
-                className="py-1.5 px-2 border border-gray-300 rounded-xs outline-0 focus:border-blue-300 focus:border-2"
-                value={bookForm.title || ""}
-                onChange={(e) => {
-                  setBookForm({
-                    ...bookForm,
-                    title: e.target.value,
-                  });
-                }}
-              />
-            </label>
+            {summariesLoading && <LoadingSpinner />}
 
-            {/* Author Selection Dropdown */}
-            <select
-              value={bookForm.author_id || ""}
-              onChange={(e) =>
-                setBookForm({
-                  ...bookForm,
-                  author_id: e.target.value,
-                })
-              }
-              className="py-2 px-2 border border-gray-300 rounded-xs outline-0 focus:border-blue-300 focus:border-2"
-            >
-              <option defaultValue>اختر اسم الكاتب</option>
+            {!summariesLoading && summaries.length === 0 && (
+              <div className="text-center text-gray-400 py-10">
+                <ScrollText className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                <p className="font-medium">لا توجد ملخصات بعد</p>
+              </div>
+            )}
 
-              {/* Map through authors to populate dropdown */}
-              {authors.map((author) => (
-                <option key={author.id} value={author.id}>
-                  {author.name}
-                </option>
-              ))}
-            </select>
+            {!summariesLoading && summaries.length > 0 && (
+              <div className="flex flex-col gap-3">
+                {summaries.map((s, i) => (
+                  <div
+                    key={s.id ?? i}
+                    className="rounded-xl p-4 flex flex-col gap-2 overflow-hidden bg-primary/[0.04] border border-[#f1f5f9]"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 bg-primary/[8%] text-primary"
+                        >
+                          {s.username[0].toUpperCase()}
+                        </div>
+                        <span
+                          className="text-xs font-semibold text-primary-light"
+                        >
+                          {`القارئ ${s.first_name} ${s.last_name}`}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => handleDeleteSummary(s.id)}
+                        disabled={deletingSummaryId === s.id}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold
+                                   transition-all cursor-pointer hover:-translate-y-0.5
+                                   disabled:opacity-60 disabled:cursor-not-allowed bg-red-50 text-red-500 border border-red-200"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        {deletingSummaryId === s.id ? "حذف..." : "حذف"}
+                      </button>
+                    </div>
+                    <p className="text-sm text-gray-600 leading-relaxed break-words whitespace-pre-wrap">
+                      {s.summary}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+      {/* ============ Add / Edit Modal ============ */}
+      {openForm && (
+        <>
+          {/* Backdrop */}
+          <div className="fixed inset-0 bg-black/50 z-40" onClick={resetForm} />
 
-            {/* Category Selection Dropdown */}
-            <select
-              value={bookForm.category_id || ""}
-              onChange={(e) =>
-                setBookForm({
-                  ...bookForm,
-                  category_id: e.target.value,
-                })
-              }
-              className="py-2 px-2 border border-gray-300 rounded-xs outline-0 focus:border-blue-300 focus:border-2"
-            >
-              <option defaultValue>اختر الفئة</option>
-
-              {/* Map through categories to populate dropdown */}
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.name}
-                </option>
-              ))}
-            </select>
-
-            {/* Book Description Input */}
-            <label htmlFor="description" className="flex flex-col gap-0.5">
-              الوصف
-              <input
-                type="text"
-                id="description"
-                placeholder="الوصف"
-                className="py-1.5 px-2 border border-gray-300 rounded-xs outline-0 focus:border-blue-300 focus:border-2"
-                value={bookForm.description || ""}
-                onChange={(e) => {
-                  setBookForm({
-                    ...bookForm,
-                    description: e.target.value,
-                  });
-                }}
-              />
-            </label>
-
-            {/* Total Copies Input */}
-            <label htmlFor="copy-amount" className="flex flex-col gap-0.5">
-              عدد النسخ
-              <input
-                type="number"
-                id="copy-amount"
-                placeholder="عدد النسخ"
-                className="py-1.5 px-2 border border-gray-300 rounded-xs outline-0 focus:border-blue-300 focus:border-2"
-                value={bookForm.total_copies || ""}
-                onChange={(e) => {
-                  setBookForm({
-                    ...bookForm,
-                    total_copies: e.target.value,
-                  });
-                }}
-              />
-            </label>
-
-            {/* ISBN Input */}
-            <label htmlFor="isbn" className="flex flex-col gap-0.5">
-              الرقم الدولي المعياري للكتاب
-              <input
-                type="number"
-                id="isbn"
-                placeholder="أدخل الرقم الدولي المعياري للكتاب (ISBN)"
-                className="py-1.5 px-2 border border-gray-300 rounded-xs outline-0 focus:border-blue-300 focus:border-2"
-                value={bookForm.isbn || ""}
-                onChange={(e) => {
-                  setBookForm({
-                    ...bookForm,
-                    isbn: e.target.value,
-                  });
-                }}
-              />
-            </label>
-
-            {/* Publication Year Input */}
-            <label htmlFor="published-year" className="flex flex-col gap-0.5">
-              سنة النشر
-              <input
-                type="number"
-                id="published-year"
-                placeholder="سنة نشر الكتاب"
-                className="py-1.5 px-2 border border-gray-300 rounded-xs outline-0 focus:border-blue-300 focus:border-2"
-                value={bookForm.publication_year || ""}
-                onChange={(e) => {
-                  setBookForm({
-                    ...bookForm,
-                    publication_year: e.target.value,
-                  });
-                }}
-              />
-            </label>
-
-            {/* Number of Pages Input */}
-            <label htmlFor="number-of-pages" className="flex flex-col gap-0.5">
-              عدد صفحات الكتاب
-              <input
-                type="number"
-                id="number-of-pages"
-                placeholder="عدد صفحات الكتاب"
-                className="py-1.5 px-2 border border-gray-300 rounded-xs outline-0 focus:border-blue-300 focus:border-2"
-                value={bookForm.pages}
-                onChange={(e) => {
-                  setBookForm({
-                    ...bookForm,
-                    pages: e.target.value,
-                  });
-                }}
-              />
-            </label>
-
-            {/* Modal Action Buttons */}
-            <div className="flex gap-4 items-center mt-6 flex-wrap ">
-              {/* Submit Button - text changes based on isEdit mode */}
+          {/* Modal dialog */}
+          <div
+            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50
+                        bg-white rounded-2xl p-8 w-[90%] sm:w-[480px] shadow-2xl
+                        max-h-[90vh] overflow-y-auto"
+          >
+            {/* Header */}
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-lg font-bold text-primary">
+                {isEdit ? "تعديل الكتاب" : "إضافة كتاب جديد"}
+              </h2>
               <button
-                onClick={() => {
-                  addOrEditBook();
-                  resetForm();
+                onClick={resetForm}
+                className="p-1 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Fields */}
+            <div className="flex flex-col gap-4">
+              {/* Title */}
+              <label className="flex flex-col text-sm font-medium text-gray-700">
+                العنوان
+                <input
+                  type="text"
+                  placeholder="اسم الكتاب"
+                  className={inputCls}
+                  value={bookForm.title || ""}
+                  onChange={(e) => patch("title", e.target.value)}
+                />
+              </label>
+
+              {/* Author dropdown */}
+              <label className="flex flex-col text-sm font-medium text-gray-700">
+                المؤلف
+                <select
+                  className={inputCls}
+                  value={bookForm.author_id || ""}
+                  onChange={(e) => patch("author_id", e.target.value)}
+                >
+                  <option value="">اختر اسم الكاتب</option>
+                  {authors.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {/* Category dropdown */}
+              <label className="flex flex-col text-sm font-medium text-gray-700">
+                الفئة
+                <select
+                  className={inputCls}
+                  value={bookForm.category_id || ""}
+                  onChange={(e) => patch("category_id", e.target.value)}
+                >
+                  <option value="">اختر الفئة</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {/* Description */}
+              <label className="flex flex-col text-sm font-medium text-gray-700">
+                الوصف
+                <input
+                  type="text"
+                  placeholder="وصف الكتاب"
+                  className={inputCls}
+                  value={bookForm.description || ""}
+                  onChange={(e) => patch("description", e.target.value)}
+                />
+              </label>
+
+              {/* Copies + Pages row */}
+              <div className="flex gap-3">
+                <label className="flex flex-col text-sm font-medium text-gray-700 flex-1">
+                  عدد النسخ
+                  <input
+                    type="number"
+                    placeholder="عدد النسخ"
+                    className={inputCls}
+                    value={bookForm.total_copies || ""}
+                    onChange={(e) => patch("total_copies", e.target.value)}
+                  />
+                </label>
+                <label className="flex flex-col text-sm font-medium text-gray-700 flex-1">
+                  عدد الصفحات
+                  <input
+                    type="number"
+                    placeholder="عدد الصفحات"
+                    className={inputCls}
+                    value={bookForm.pages || ""}
+                    onChange={(e) => patch("pages", e.target.value)}
+                  />
+                </label>
+              </div>
+
+              {/* ISBN + Year row */}
+              <div className="flex gap-3">
+                <label className="flex flex-col text-sm font-medium text-gray-700 flex-1">
+                  ISBN
+                  <input
+                    type="number"
+                    placeholder="الرقم الدولي للكتاب"
+                    className={inputCls}
+                    value={bookForm.isbn || ""}
+                    onChange={(e) => patch("isbn", e.target.value)}
+                  />
+                </label>
+                <label className="flex flex-col text-sm font-medium text-gray-700 flex-1">
+                  سنة النشر
+                  <input
+                    type="number"
+                    placeholder="سنة النشر"
+                    className={inputCls}
+                    value={bookForm.publication_year || ""}
+                    onChange={(e) => patch("publication_year", e.target.value)}
+                  />
+                </label>
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex gap-3 mt-8">
+              <button
+                onClick={handleSubmit}
+                className="flex-1 py-2.5 rounded-xl font-semibold text-sm text-white
+                           transition-all duration-200 hover:opacity-90 cursor-pointer"
+                style={{
+                  background: `linear-gradient(135deg, ${NAVY} 0%, ${NAVY2} 100%)`,
                 }}
-                className="bg-blue-400 py-1.5 px-3 text-white rounded-xs flex-1 cursor-pointer hover:bg-blue-500  hover:scale-x-105 transition duration-100"
               >
                 {isEdit ? "تحديث" : "إضافة"}
               </button>
-              {/* Cancel Button */}
               <button
-                onClick={() => {
-                  resetForm();
-                }}
-                className="border py-1.5 px-3 rounded-xs hover:bg-gray-100 transition-colors duration-150 cursor-pointer"
+                onClick={resetForm}
+                className="px-4 py-2.5 rounded-xl font-semibold text-sm text-gray-600
+                           border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer"
               >
                 إلغاء
               </button>
@@ -483,120 +446,186 @@ const AdminManageBooks = () => {
         </>
       )}
 
-      {/* ============ Page Header Section ============ */}
-      <div className="heading flex justify-between items-center gap-5 flex-wrap">
+      {/* ============ Page Header ============ */}
+      <div className="flex justify-between items-center gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-semibold text-blue-950">إدارة الكتب</h1>
-          <h3 className="text-gray-400 font-medium">إضافة وتعديل وحذف الكتب</h3>
+          <h1 className="text-2xl font-bold text-primary">
+            إدارة الكتب
+          </h1>
+          <p className="text-gray-400 font-medium text-sm mt-0.5">
+            إضافة وتعديل وأرشفة الكتب
+          </p>
         </div>
 
-        {/* Add New Book Button - opens modal in add mode */}
         <button
-          onClick={() => setOpenForm(true)}
-          className="bg-primary-light rounded-lg py-1.5 px-3 flex justify-center gap-x-1 items-center text-white hover:bg-hover-dark duration-200 transition-colors cursor-pointer"
+          onClick={openAdd}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold
+                     text-sm text-white cursor-pointer transition-all duration-200
+                     hover:opacity-90 hover:-translate-y-0.5 active:scale-95 shadow-[0_4px_16px_rgba(15,27,60,0.20)]"
+          style={{
+            background: `linear-gradient(135deg, ${NAVY} 0%, ${NAVY2} 100%)`,
+          }}
         >
+          <Plus className="w-4 h-4" />
           إضافة كتاب جديد
-          <Plus size={18} />
         </button>
       </div>
 
-      {/* ============ Books List Table Section ============ */}
-      <div className="book-list p-4 sm:p-10 rounded-2xl bg-white shadow mt-8 relative">
-        <h2 className="text-blue-950 font-semibold">قائمة الكتب</h2>
-        <p className="text-gray-400 font-light">جميع الكتب في المكتبة</p>
+      {/* ============ Books Table Card ============ */}
+      <div
+        className="mt-8 rounded-2xl p-6 relative bg-white border-[1.5px] border-[#e2e8f0] shadow-[0_2px_24px_rgba(15,27,60,0.05)]"
+      >
+        <h2 className="font-semibold text-gray-800">قائمة الكتب</h2>
+        <p className="text-gray-400 text-sm font-light">
+          جميع الكتب في المكتبة
+        </p>
 
-        {/* Show loading spinner while fetching books */}
+        {/* Loading */}
         {booksLoading && <LoadingSpinner />}
 
-        {/* Show error message if books fetch failed */}
-        {!booksLoading && booksError ? (
-          <div className="text-center text-red-500 font-semibold">
+        {/* Error */}
+        {!booksLoading && booksError && (
+          <div className="text-center text-red-500 font-semibold mt-8">
             {booksError}
           </div>
-        ) : (
-          // Scrollable table container for responsive design
-          <div className="custom-scroll overflow-x-auto w-full ">
-            <table className="min-w-[200px] mt-10 border-collapse w-full">
-              {/* Table Header */}
-              <thead className="border-b border-gray-300 whitespace-nowrap">
-                <tr className="text-center ">
-                  <th className="font-medium p-2">العنوان</th>
-                  <th className="font-medium p-2">المؤلف</th>
-                  <th className="font-medium p-2">معرف الكتاب</th>
-                  <th className="font-medium p-2">الفئة</th>
-                  <th className="font-medium p-2">عدد النسخ</th>
-                  <th className="font-medium p-2">النسخ المتبقية</th>
-                  <th className="font-medium p-2">الحالة</th>
-                  <th className="font-medium p-2">الإجراءات</th>
+        )}
+
+        {/* Empty state */}
+        {!booksLoading && !booksError && books.length === 0 && (
+          <div className="text-center text-gray-400 mt-12 pb-4">
+            <div
+              className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3 bg-primary/[10%]"
+            >
+              <BookOpen className="w-8 h-8 text-primary-light" />
+            </div>
+            <p className="font-medium">لا توجد كتب بعد</p>
+            <p className="text-sm mt-1">ابدأ بإضافة كتاب جديد</p>
+          </div>
+        )}
+
+        {/* Table */}
+        {!booksLoading && !booksError && books.length > 0 && (
+          <div className="custom-scroll overflow-x-auto w-full mt-6">
+            <table className="min-w-[700px] border-collapse w-full">
+              <thead>
+                <tr className="border-b-2 border-slate-200">
+                  {[
+                    "المعرف",
+                    "العنوان",
+                    "المؤلف",
+                    "الفئة",
+                    "النسخ الكلية",
+                    "النسخ المتاحة",
+                    "الحالة",
+                    "الإجراءات",
+                  ].map((col) => (
+                    <th
+                      key={col}
+                      className="font-semibold p-3 text-right text-sm whitespace-nowrap text-primary"
+                    >
+                      {col}
+                    </th>
+                  ))}
                 </tr>
               </thead>
-              {/* Table Body - maps through all books */}
               <tbody>
                 {books.map((book) => (
                   <tr
                     key={book.id}
-                    className={`${
-                      // Archived books have gray background
-                      book.is_archived ? " bg-gray-200" : "hover:bg-gray-50"
-                    } text-center hover:shadow-md  transition-all duration-200 border-b border-gray-300 whitespace-nowrap`}
+                    className={`transition-all duration-200 border-b border-slate-100 ${
+                      book.is_archived ? "bg-slate-50 opacity-75" : "hover:bg-blue-50"
+                    }`}
                   >
-                    {/* Book Title */}
-                    <td className=" p-2 py-4 text-gray-400">{book.title}</td>
-                    {/* Author Name */}
-                    <td className=" p-2 py-4 text-gray-400">
+                    {/* ID badge */}
+                    <td className="p-3 py-4">
+                      <span
+                        className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-primary/[8%] text-primary-light"
+                      >
+                        #{book.id}
+                      </span>
+                    </td>
+
+                    {/* Title */}
+                    <td className="p-3 py-4 text-gray-700 font-medium whitespace-nowrap">
+                      {book.title}
+                    </td>
+
+                    {/* Author */}
+                    <td className="p-3 py-4 text-gray-500 text-sm whitespace-nowrap">
                       {book.author?.name}
                     </td>
-                    {/* Book ID with # prefix */}
-                    <td className=" p-2 py-4 text-gray-400">#{book.id}</td>
-                    {/* Category Name */}
-                    <td className=" p-2 py-4 text-gray-400">
-                      {book.category?.name}
+
+                    {/* Category pill */}
+                    <td className="p-3 py-4">
+                      <span
+                        className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap bg-accent/[10%] text-accent"
+                      >
+                        {book.category?.name}
+                      </span>
                     </td>
-                    {/* Total Copies Count */}
-                    <td className=" p-2 py-4 text-gray-400">
+
+                    {/* Total copies */}
+                    <td className="p-3 py-4 text-gray-500 text-sm text-center">
                       {book.total_copies}
                     </td>
-                    {/* Available Copies (not borrowed) */}
-                    <td className=" p-2 py-4 text-gray-400">
-                      {book.available_copies}
-                    </td>
-                    {/* Availability Status Badge */}
-                    <td className="p-2 py-4">
+
+                    {/* Available copies */}
+                    <td className="p-3 py-4 text-center">
                       <span
-                        className={`px-2.5 py-1 text-white rounded-md text-xs whitespace-nowrap ${
-                          book.is_avaiable ? "bg-primary" : "bg-gray-300"
+                        className={`inline-flex items-center justify-center min-w-[28px] px-2.5 py-1 rounded-full text-xs font-bold ${
+                          book.available_copies > 0 ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-500"
+                        }`}
+                      >
+                        {book.available_copies}
+                      </span>
+                    </td>
+
+                    {/* Status badge */}
+                    <td className="p-3 py-4">
+                      <span
+                        className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${
+                          book.is_avaiable ? "bg-green-500/10 text-green-600" : "bg-slate-500/15 text-slate-400"
                         }`}
                       >
                         {book.is_avaiable ? "متاح" : "غير متاح"}
                       </span>
                     </td>
-                    {/* Action Buttons Column */}
-                    <td className=" p-2 py-4">
-                      <div className="flex gap-1 justify-center items-center ">
-                        {/* Edit Button - opens modal in edit mode */}
+
+                    {/* Actions */}
+                    <td className="p-3 py-4">
+                      <div className="flex gap-2 items-center justify-start">
+                        {/* Edit */}
                         <button
-                          onClick={() => {
-                            editBook(book);
-                            setIsEdit(true);
-                            setOpenForm(true);
-                          }}
-                          className="bg-accent  py-1 px-2 rounded-lg text-sm hover:bg-accent-dark text-white transition-colors duration-150 cursor-pointer "
+                          onClick={() => openEdit(book)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs
+                                     font-semibold transition-all duration-200 cursor-pointer
+                                     hover:-translate-y-0.5 whitespace-nowrap bg-accent/[10%] text-accent border border-accent/30"
                         >
+                          <Pencil className="w-3.5 h-3.5" />
                           تعديل
                         </button>
 
-                        {/* Conditional Archive/Unarchive Button */}
+                        {/* Summaries */}
+                        <button
+                          onClick={() => openSummariesModal(book)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs
+                                     font-semibold transition-all duration-200 cursor-pointer
+                                     hover:-translate-y-0.5 whitespace-nowrap bg-primary/[8%] text-primary-light border border-primary/[12%]"
+                        >
+                          <ScrollText className="w-3.5 h-3.5" />
+                          ملخصات
+                        </button>
+
+                        {/* Archive / Unarchive */}
                         {book.is_archived ? (
-                          // Unarchive button for archived books
                           <ArchiveUnarchiveBook
                             onConfirm={() => unarchiveBookFn(book.id)}
-                            text={"إلغاء ارشفة الكتاب"}
+                            text="إلغاء الأرشفة"
                           />
                         ) : (
-                          // Archive button for active books
                           <ArchiveUnarchiveBook
                             onConfirm={() => archiveBookFn(book.id)}
-                            text={"ارشفة الكتاب"}
+                            text="أرشفة"
                           />
                         )}
                       </div>

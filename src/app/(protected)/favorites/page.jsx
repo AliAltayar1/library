@@ -1,422 +1,607 @@
 "use client";
 
 /**
- * Favorites Component - User's Favorite Books Management Page
+ * Favorites Component - Premium redesigned favorites management page
  *
- * @description This component displays and manages the user's favorite books collection with:
- * - Search functionality by book title or author
- * - Category filtering from dropdown
- * - Sorting by title or author name
- * - Grid/List display toggle
- * - Remove from favorites functionality
- * - Empty state with "clear filters" option when no results found
- * - Loading states and error handling
+ * @description Displays and manages the user's favorite books with:
+ * - Premium hero header with gradient background and live stats
+ * - Glassmorphism search & filter bar
+ * - Staggered Framer Motion card entrance animations
+ * - Spring-animated remove button
+ * - Grid/List view toggle with layout animations
+ * - Skeleton loading states
+ * - Polished empty state with clear-filters action
  *
  * @returns {JSX.Element} The Favorites page component
  */
 
 import {
   ArrowUpNarrowWide,
+  BookOpen,
   Grid3x3,
   Heart,
   List,
   Search,
-  ShoppingCart,
+  SlidersHorizontal,
+  Sparkles,
   User,
+  Trash2,
 } from "lucide-react";
 import React, { useEffect, useState } from "react";
-// import Button from "../../../components/button";
 import Image from "next/image";
 import Link from "next/link";
-import { books } from "../../../../lib/data";
 import LoadingSpinner from "@/app/UI/LoadingSpinner";
 import { getFavoritesBooks } from "../../../../lib/favorite/getFavBook";
 import { removeFromFav } from "../../../../lib/favorite/removeFromFav";
 import { toast } from "sonner";
 import { getCategories } from "../../../../lib/categories/categories";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+
+// ─── Animation Variants ───────────────────────────────────────────────────────
+
+const containerVariants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.08 } },
+};
+
+const cardVariants = {
+  hidden: { opacity: 0, y: 32, scale: 0.97 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { duration: 0.45, ease: [0.25, 0.8, 0.25, 1] },
+  },
+  exit: {
+    opacity: 0,
+    scale: 0.93,
+    y: -12,
+    transition: { duration: 0.3, ease: "easeIn" },
+  },
+};
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 20 },
+  visible: (delay = 0) => ({
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5, delay, ease: "easeOut" },
+  }),
+};
+
+// ─── Skeleton Card ─────────────────────────────────────────────────────────────
+
+const SkeletonCard = () => (
+  <div className="bg-white rounded-2xl overflow-hidden shadow-md animate-pulse">
+    <div className="w-full h-[270px] bg-gray-200" />
+    <div className="p-4 space-y-3">
+      <div className="h-4 bg-gray-200 rounded w-3/4" />
+      <div className="h-3 bg-gray-200 rounded w-1/2" />
+      <div className="h-3 bg-gray-200 rounded w-full" />
+      <div className="h-3 bg-gray-200 rounded w-5/6" />
+      <div className="h-9 bg-gray-200 rounded-xl mt-4" />
+    </div>
+  </div>
+);
+
+// ─── Main Component ────────────────────────────────────────────────────────────
 
 const Favorites = () => {
-  // ============ State Management ============
+  const prefersReducedMotion = useReducedMotion();
 
-  // Sorting state - controls whether favorites are sorted by "title" or "author"
+  // ── State ──────────────────────────────────────────────────────────────────
   const [sortBy, setSortBy] = useState("title");
-
-  // Display method state - toggles between "grid" and "list" view
   const [displayMethod, setDisplayMethod] = useState("grid");
-
-  // Search term state - stores user's search input for filtering favorites
   const [searchTerm, setSearchTerm] = useState("");
-
-  // Category filter state - stores selected category for filtering, "all" shows all favorites
   const [selectedCategory, setSelectedCategory] = useState("all");
-
-  // Favorites books state - stores array of favorite book objects from API
-  // Note: Each item has structure { id, book: {...}, created_at }
   const [favoritesBooks, setFavoritesBooks] = useState([]);
-
-  // Loading state for favorites fetch operation
   const [loading, setLoading] = useState(false);
-
-  // Error state for favorites fetch operation
   const [error, setError] = useState(null);
-
-  // Favorite removal loading state - stores the ID of book being removed
-  const [favLoading, setFavLoading] = useState(false);
-
-  // Categories data state - stores available book categories for filter dropdown
+  const [favLoading, setFavLoading] = useState(null);
   const [categories, setCategories] = useState([]);
 
-  // ============ Filtering and Sorting Logic ============
-
-  /**
-   * Filtered favorites based on search term and selected category
-   * Filters by both author name and book title (case-insensitive)
-   * Note: favoritesBooks structure has nested book object (b.book.property)
-   */
+  // ── Filtering & Sorting ────────────────────────────────────────────────────
   const filteredBooks =
     favoritesBooks &&
     favoritesBooks.filter((b) => {
-      // Check if search term matches author name or book title
-      const filteredBySearch =
+      const matchSearch =
         b.book.author?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        b.title.toLowerCase().includes(searchTerm.toLowerCase());
-
-      // Check if book matches selected category (or show all if "all" is selected)
-      const filteredByCategory =
+        b.book.title.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchCategory =
         selectedCategory !== "all"
-          ? b.category?.name === selectedCategory
+          ? b.book.category?.name === selectedCategory
           : true;
-
-      // Book must match both filters to be displayed
-      return filteredBySearch && filteredByCategory;
+      return matchSearch && matchCategory;
     });
 
-  /**
-   * Sorted favorites array based on the selected sort criteria (title or author)
-   * Uses localeCompare for proper alphabetical sorting in any locale
-   */
-  const sortedBooks = filteredBooks.sort((a, b) => {
-    // Helper function to get the value to sort by from nested book object
-    const getValue = (item) => {
-      if (sortBy === "author") {
-        return item.author?.name || "";
-      }
-      return item[sortBy] ?? "";
-    };
-
-    // Compare values alphabetically using localeCompare
-    // Note: Accessing nested book object with getValue(a.book)
+  const sortedBooks = [...(filteredBooks || [])].sort((a, b) => {
+    const getValue = (item) =>
+      sortBy === "author" ? item.author?.name || "" : (item[sortBy] ?? "");
     return getValue(a.book).localeCompare(getValue(b.book));
   });
 
-  // ============ Utility Functions ============
-
-  /**
-   * Clears all active filters and resets to default state
-   * Used when no results found to help user reset search/filter criteria
-   *
-   * @function clearFilters
-   * @returns {void}
-   */
+  // ── Utility ────────────────────────────────────────────────────────────────
   function clearFilters() {
     setSearchTerm("");
     setSelectedCategory("all");
   }
 
-  // ============ API Functions ============
-
-  /**
-   * Fetches all favorite books for the current user from the API
-   *
-   * @async
-   * @function getFavoritesBooksFn
-   * @returns {Promise<void>}
-   * @throws {Error} Displays error toast if fetch fails
-   */
+  // ── API Functions ──────────────────────────────────────────────────────────
   const getFavoritesBooksFn = async () => {
     setLoading(true);
     try {
       const data = await getFavoritesBooks();
       setFavoritesBooks(data);
-    } catch (error) {
-      setError(error.message);
-      toast.error(error.message);
+    } catch (err) {
+      setError(err.message);
+      toast.error(err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  /**
-   * Removes a book from the user's favorites list
-   * Refreshes favorites list after successful removal
-   *
-   * @async
-   * @function removeFromFavFn
-   * @param {number} bookId - The ID of the book to remove from favorites
-   * @returns {Promise<void>}
-   * @throws {Error} Displays error toast if removal fails
-   */
   const removeFromFavFn = async (bookId) => {
     try {
-      const res = await removeFromFav(bookId);
-      // Refresh favorites list to update UI
+      await removeFromFav(bookId);
       await getFavoritesBooksFn();
       toast.success("تمت الإزالة من المفضلة");
-    } catch (error) {
-      console.log(error.message);
-      toast.error("حث خطأ اثناء الإزالة من المفضلة بسبب: " + error.message);
+    } catch (err) {
+      toast.error("حدث خطأ أثناء الإزالة: " + err.message);
     }
   };
 
-  /**
-   * Fetches all available book categories from the API
-   * Used to populate the category filter dropdown
-   *
-   * @async
-   * @function getCategoriesFn
-   * @returns {Promise<void>}
-   */
   const getCategoriesFn = async () => {
-    // setCateLoading(true);
     try {
       const data = await getCategories();
       setCategories(data);
-    } catch (error) {
-      console.error("Error fetching books:", error.message);
+    } catch (err) {
+      console.error("Error fetching categories:", err.message);
     }
   };
 
-  // ============ Side Effects ============
-
-  /**
-   * Initial data fetch on component mount
-   * Loads user's favorite books and available categories
-   */
+  // ── Effects ────────────────────────────────────────────────────────────────
   useEffect(() => {
     getFavoritesBooksFn();
     getCategoriesFn();
   }, []);
 
-  // ============ JSX Render ============
-
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <section className="favorites container min-w-full py-15">
-      {/* Page Title and Description */}
-      <h1 className="text-4xl font-bold text-blue-950">مفضلتي</h1>
-      <p className=" text-gray-500 font-medium mt-4 mb-8">كتاب في مفضلتك </p>
+    <div className="min-h-screen" dir="rtl">
+      {/* ── Hero Header ─────────────────────────────────────────────────── */}
+      <div
+        className="relative overflow-hidden mb-10"
+        style={{
+          background:
+            "linear-gradient(135deg, #3d0a1e 0%, #6b1232 55%, #4a0d24 100%)",
+        }}
+      >
+        {/* Decorative orbs */}
+        <div
+          className="absolute -top-16 -left-16 w-80 h-80 rounded-full opacity-15 pointer-events-none"
+          style={{
+            background: "radial-gradient(circle, #e91e63, transparent 70%)",
+          }}
+        />
+        <div
+          className="absolute -bottom-20 -right-10 w-96 h-96 rounded-full opacity-10 pointer-events-none"
+          style={{
+            background: "radial-gradient(circle, #f48fb1, transparent 70%)",
+          }}
+        />
 
-      {/* Search and Filter Section */}
-      <div className="search bg-white p-6 rounded-2xl border border-gray-300">
-        <div className="flex gap-5 flex-1 flex-col sm:flex-row">
-          {/* Search Input - filters by title or author */}
-          <div className="relative flex-3">
-            <input
-              type="text"
-              placeholder="ابحث في مفضلتك..."
-              value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-              }}
-              className="w-full border border-gray-300 rounded-lg py-2 px-2 focus:outline-4 outline-blue-300 transition-all duration-100 ps-9"
+        <div className="container py-14 relative z-10">
+          {/* Badge */}
+          <motion.div
+            custom={0}
+            variants={fadeUp}
+            initial="hidden"
+            animate="visible"
+            className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-1.5 mb-6"
+          >
+            <Sparkles size={15} className="text-pink-300" />
+            <span className="text-pink-200 text-sm font-medium">
+              كتبك المفضلة
+            </span>
+          </motion.div>
+
+          {/* Title */}
+          <motion.h1
+            custom={0.1}
+            variants={fadeUp}
+            initial="hidden"
+            animate="visible"
+            className="text-4xl md:text-5xl font-bold text-white mb-4 leading-tight"
+          >
+            مفضلتي{" "}
+            <Heart
+              className="inline-block text-pink-400 fill-pink-400 mb-1"
+              size={36}
             />
-            <Search className="text-gray-400 absolute top-2 right-2 " />
-          </div>
+          </motion.h1>
 
-          {/* Category Filter Dropdown */}
-          <select
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="border flex-1 border-gray-300 rounded-lg px-3 text-gray-500 "
+          {/* Subtitle */}
+          <motion.p
+            custom={0.2}
+            variants={fadeUp}
+            initial="hidden"
+            animate="visible"
+            className="text-white/70 text-lg max-w-lg"
           >
-            <option value={"all"}>جميع الفئات</option>
-            {categories.map((category) => (
-              <option key={category.id} value={category.name}>
-                {category.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+            مجموعتك الشخصية من الكتب التي أعجبتك — في مكان واحد، دائماً في
+            متناول يدك.
+          </motion.p>
 
-      {/* Sort Controls and Display Method Toggle */}
-      <div className="sort-display px-1 flex justify-between items-center mt-10 text-gray-500 flex-wrap gap-x-10 gap-y-5">
-        {/* Display count of filtered favorites */}
-        <p className="">{sortedBooks.length} من مفضلة معروضة</p>
-        <div className="flex gap-x-4 flex-wrap gap-y-2">
-          {/* Sort By Controls - Title or Author */}
-          <div className="sortBy flex items-center gap-x-3">
-            <span className="">ترتيب حسب: </span>
-            {/* Sort by Title Button */}
-            <button
-              className={`py-1.5 px-3 border border-gray-400 rounded-lg  cursor-pointer flex items-center gap-x-2  ${
-                sortBy === "title"
-                  ? "bg-primary-light text-white hover:bg-hover-dark  "
-                  : "text-black hover:bg-accent hover:text-white hover:border-gray-200"
-              }`}
-              onClick={() => setSortBy("title")}
-            >
-              العنوان
-              <ArrowUpNarrowWide size={18} />
-            </button>
-            {/* Sort by Author Button */}
-            <button
-              className={`py-1.5 px-3 border border-gray-300 rounded-lg  cursor-pointer flex items-center gap-x-2  ${
-                sortBy === "author"
-                  ? "bg-primary-light text-white hover:bg-hover-dark  "
-                  : "text-black hover:bg-accent hover:text-white hover:border-gray-200"
-              }`}
-              onClick={() => setSortBy("author")}
-            >
-              المؤلف
-              <User size={18} />
-            </button>
-          </div>
-          {/* Display Method Controls - Grid or List View */}
-          <div className="displayBooks flex items-center gap-2.5">
-            <span className="">طريقة العرض: </span>
-            {/* Grid View Button */}
-            <button
-              className={`-me-1 border-gray-300 border p-2 rounded-lg cursor-pointer flex items-center gap-x-2  ${
-                displayMethod === "grid"
-                  ? "bg-primary-light text-white hover:bg-hover-dark  "
-                  : "text-black hover:bg-accent hover:text-white hover:border-gray-200"
-              }`}
-              onClick={() => setDisplayMethod("grid")}
-            >
-              <Grid3x3 size={18} />
-            </button>
-            {/* List View Button */}
-            <button
-              className={`-me-1 border-gray-300 border p-2 rounded-lg cursor-pointer flex items-center gap-x-2  ${
-                displayMethod === "list"
-                  ? "bg-primary-light text-white hover:bg-hover-dark  "
-                  : "text-black hover:bg-accent hover:text-white hover:border-gray-200"
-              }`}
-              onClick={() => setDisplayMethod("list")}
-            >
-              <List size={18} />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Favorites Display Section */}
-      <section className="books mt-10 text-center ">
-        {/* Show loading spinner while fetching favorites */}
-        {loading && <LoadingSpinner />}
-
-        {/* Show error message if favorites fetch failed */}
-        {error && <div className="text-red-400">{error}</div>}
-
-        {/* Conditional rendering: Show favorites grid or empty state */}
-        {sortedBooks.length > 1 ? (
-          // Favorites Grid/List - layout changes based on displayMethod state
-          <div
-            className={`${
-              displayMethod === "grid" ? "grid" : "flex"
-            } flex-col items-center grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 mt-10 `}
+          {/* Stats */}
+          <motion.div
+            custom={0.3}
+            variants={fadeUp}
+            initial="hidden"
+            animate="visible"
+            className="mt-8 flex flex-wrap gap-4"
           >
-            {/* Map through sorted and filtered favorites to render book cards */}
-            {sortedBooks.map((b) => (
+            {[
+              {
+                icon: Heart,
+                label: "إجمالي المفضلة",
+                value: favoritesBooks.length,
+                color: "text-pink-400",
+              },
+              {
+                icon: Search,
+                label: "النتائج الظاهرة",
+                value: sortedBooks.length,
+                color: "text-pink-300",
+              },
+              {
+                icon: BookOpen,
+                label: "الفئات",
+                value: new Set(
+                  favoritesBooks
+                    .map((b) => b.book.category?.name)
+                    .filter(Boolean),
+                ).size,
+                color: "text-pink-300",
+              },
+            ].map(({ icon: Icon, label, value, color }) => (
               <div
-                key={b.book.id}
-                className="bg-white rounded-xl transition-shadow duration-200 shadow-xl flex flex-col items-start hover:shadow-2xl p-4 w-full max-w-[600px] h-full"
+                key={label}
+                className="flex items-center gap-3 bg-white/10 backdrop-blur-sm border border-white/15 rounded-xl px-4 py-2.5"
               >
-                {/* Book Cover Image */}
-                <div className="aspect-[3/4] relative mb-4 overflow-hidden rounded-lg w-full h-[300px]">
-                  <Image
-                    src={b.book.image || "/placeholder.svg"}
-                    alt={b.book.title}
-                    className="object-contain "
-                    fill
-                    sizes="200px"
-                  />
-                </div>
-
-                {/* Book Title */}
-                <span className="font-medium mb-2">{b.book.title}</span>
-                {/* Book Author */}
-                <span className="text-gray-500 text-start">
-                  {b.book.author?.name}
-                </span>
-
-                {/* Book Category and Page Count */}
-                <div className="flex justify-between w-full items-center my-5">
-                  {/* Category Badge */}
-                  <span className="bg-accent text-gray-50 px-2 py-1 rounded ">
-                    {b.book.category?.name || "لا يوجد فئة"}
-                  </span>
-                  {/* Page Count */}
-                  <span className="text-gray-400">{b.book.pages} صفحة</span>
-                </div>
-
-                {/* Book Description - limited to 2 lines with ellipsis */}
-                <p className="text-gray-500 mb-5 line-clamp-2 h-[45px]">
-                  {b.book.description}
-                </p>
-
-                {/* View Details Button - navigates to individual book page */}
-                <Link
-                  href={`/books/${b.book.id}`}
-                  className="bg-primary-light hover:bg-hover-dark w-full text-white rounded-md py-2 px-4 cursor-pointer transform transition-all duration-300  whitespace-nowrap "
-                >
-                  عرض التفاصيل
-                </Link>
-
-                {/* Remove from Favorites Button Section */}
-                <div className="flex items-center gap-x-3 justify-between w-full mt-5 flex-wrap gap-y-2 ">
-                  {/* Show loading spinner if this specific book is being removed */}
-                  {favLoading === b.book.id ? (
-                    <LoadingSpinner />
-                  ) : (
-                    // Remove from Favorites Button
-                    <button
-                      onClick={async () => {
-                        setFavLoading(b.book.id);
-                        await removeFromFavFn(b.book.id);
-                        setFavLoading(null);
-                      }}
-                      className="group flex items-center gap-x-2 border border-gray-300 px-3 py-1.5 rounded-lg justify-center flex-1 cursor-pointer hover:bg-red-300 hover:text-white transition-colors duration-200"
-                    >
-                      <Heart
-                        size={18}
-                        className="text-red-500 group-hover:text-white transition-colors duration-200"
-                      />
-                      إزالة من المفضلة
-                    </button>
-                  )}
+                <Icon size={18} className={color} />
+                <div>
+                  <p className="text-white/60 text-xs">{label}</p>
+                  <p className="text-white font-bold text-lg leading-none">
+                    {value}
+                  </p>
                 </div>
               </div>
             ))}
-          </div>
-        ) : (
-          // Empty State - shown when no favorites match the search/filter criteria
-          <section className="flex flex-col items-center gap-y-3 mt-10">
-            {/* Search icon for empty state visual */}
-            <Search size={60} color="gray" />
-            {/* No results message */}
-            <p className="text-xl font-semibold text-gray-600">
-              لم يتم العثور على نتائج
-            </p>
-            {/* Suggestion text */}
-            <span className="text-gray-500">
-              جرب تعديل معايير البحث أو التصفية.
-            </span>
+          </motion.div>
+        </div>
+      </div>
 
-            {/* Clear Filters Button - resets all search and filter criteria */}
-            <button
-              className={
-                "rounded-xl px-4 py-2 cursor-pointer transform transition-all duration-300  whitespace-nowrap text-white bg-primary-light hover:bg-hover-dark"
-              }
-              onClick={() => {
-                clearFilters();
-              }}
-            >
-              مسح المرشحات
-            </button>
-          </section>
+      {/* ── Main Content ─────────────────────────────────────────────────── */}
+      <div className="container pb-16">
+        {/* ── Search & Filter Bar ─────────────────────────────────────── */}
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.15 }}
+          className="glass-card rounded-2xl p-5 mb-8 border border-white/60"
+        >
+          <div className="flex flex-col sm:flex-row gap-4">
+            {/* Search Input */}
+            <div className="relative flex-1">
+              <Search
+                size={18}
+                className="absolute top-1/2 -translate-y-1/2 right-3 text-gray-400 pointer-events-none"
+              />
+              <input
+                type="text"
+                placeholder="ابحث في مفضلتك..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full border border-gray-200 rounded-xl py-2.5 px-4 pr-10 focus:outline-none focus:ring-2 focus:ring-pink-400/50 focus:border-pink-400 transition-all duration-200 bg-white/80 text-sm placeholder:text-gray-400"
+              />
+            </div>
+
+            {/* Category Dropdown */}
+            <div className="relative">
+              <SlidersHorizontal
+                size={16}
+                className="absolute top-1/2 -translate-y-1/2 right-3 text-gray-400 pointer-events-none"
+              />
+              <select
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                value={selectedCategory}
+                className="border border-gray-200 rounded-xl px-4 py-2.5 pr-9 text-gray-600 bg-white/80 focus:outline-none focus:ring-2 focus:ring-pink-400/50 focus:border-pink-400 transition-all duration-200 text-sm min-w-[160px] appearance-none cursor-pointer"
+              >
+                <option value="all">جميع الفئات</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.name}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* ── Toolbar ─────────────────────────────────────────────────── */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.4, delay: 0.25 }}
+          className="flex flex-wrap justify-between items-center gap-4 mb-8"
+        >
+          <p className="text-sm text-gray-500">
+            <span className="font-semibold text-primary">
+              {sortedBooks.length}
+            </span>{" "}
+            كتاب في مفضلتك
+            {searchTerm && (
+              <span className="text-pink-600"> · نتائج "{searchTerm}"</span>
+            )}
+          </p>
+
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* Sort Controls */}
+            <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-xl p-1 shadow-sm">
+              <span className="text-xs text-gray-400 px-2">ترتيب:</span>
+              {[
+                { value: "title", label: "العنوان", icon: ArrowUpNarrowWide },
+                { value: "author", label: "المؤلف", icon: User },
+              ].map(({ value, label, icon: Icon }) => (
+                <button
+                  key={value}
+                  onClick={() => setSortBy(value)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer ${
+                    sortBy === value
+                      ? "bg-primary text-white shadow-sm"
+                      : "text-gray-600 hover:bg-gray-100"
+                  }`}
+                >
+                  <Icon size={14} />
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* Display Toggle */}
+            <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-xl p-1 shadow-sm">
+              {[
+                { value: "grid", icon: Grid3x3 },
+                { value: "list", icon: List },
+              ].map(({ value, icon: Icon }) => (
+                <button
+                  key={value}
+                  onClick={() => setDisplayMethod(value)}
+                  className={`p-2 rounded-lg transition-all duration-200 cursor-pointer ${
+                    displayMethod === value
+                      ? "bg-primary text-white shadow-sm"
+                      : "text-gray-500 hover:bg-gray-100"
+                  }`}
+                >
+                  <Icon size={17} />
+                </button>
+              ))}
+            </div>
+          </div>
+        </motion.div>
+
+        {/* ── Error State ─────────────────────────────────────────────── */}
+        {error && (
+          <div className="text-center py-12 text-red-500 bg-red-50 rounded-2xl border border-red-100">
+            {error}
+          </div>
         )}
-      </section>
-    </section>
+
+        {/* ── Skeleton Loading ─────────────────────────────────────── */}
+        {loading && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </div>
+        )}
+
+        {/* ── Books Grid / List ─────────────────────────────────────── */}
+        {!loading && sortedBooks.length > 0 && (
+          <motion.div
+            key={displayMethod}
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            className={
+              displayMethod === "grid"
+                ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                : "flex flex-col gap-5"
+            }
+          >
+            <AnimatePresence mode="popLayout">
+              {sortedBooks.map((b) => (
+                <motion.div
+                  key={b.book.id}
+                  layout={!prefersReducedMotion}
+                  variants={cardVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
+                  whileHover={
+                    !prefersReducedMotion
+                      ? {
+                          y: -6,
+                          boxShadow: "0 20px 48px rgba(15,27,60,0.18)",
+                        }
+                      : {}
+                  }
+                  className={`book-card bg-white overflow-hidden ${
+                    displayMethod === "list" ? "flex flex-row" : "flex flex-col"
+                  }`}
+                >
+                  {/* ── Cover Image ────────────────────────────────── */}
+                  <Link
+                    href={`/books/${b.book.id}`}
+                    className={`cover-wrap block overflow-hidden flex-shrink-0 relative ${
+                      displayMethod === "list"
+                        ? "w-[120px] md:w-[160px] min-h-[180px]"
+                        : "w-full h-[270px]"
+                    }`}
+                  >
+                    <Image
+                      src={b.book.image || "/placeholder.svg"}
+                      alt={b.book.title}
+                      fill={displayMethod !== "list"}
+                      width={displayMethod === "list" ? 160 : undefined}
+                      height={displayMethod === "list" ? 220 : undefined}
+                      className="object-cover w-full h-full"
+                      sizes={displayMethod === "list" ? "160px" : "400px"}
+                    />
+                    {/* Hover overlay */}
+                    <div className="cover-overlay" />
+
+                    {/* Fav badge on cover */}
+                    <div className="absolute top-2 left-2 w-8 h-8 rounded-full bg-red-500/90 flex items-center justify-center shadow-md z-10">
+                      <Heart size={14} className="fill-white text-white" />
+                    </div>
+                  </Link>
+
+                  {/* ── Card Body ──────────────────────────────────── */}
+                  <div className="flex flex-col flex-1 p-5">
+                    {/* Category & Pages */}
+                    <div className="flex items-center justify-between mb-3">
+                      <span
+                        className="text-xs font-semibold px-2.5 py-1 rounded-full"
+                        style={{
+                          background: "rgba(212,147,10,0.12)",
+                          color: "#b87c08",
+                          border: "1px solid rgba(212,147,10,0.3)",
+                        }}
+                      >
+                        {b.book.category?.name || "عام"}
+                      </span>
+                      <span className="text-xs text-gray-400 flex items-center gap-1">
+                        <BookOpen size={12} />
+                        {b.book.pages} صفحة
+                      </span>
+                    </div>
+
+                    {/* Title */}
+                    <h3 className="font-bold text-gray-900 mb-1 leading-snug line-clamp-2 text-[15px]">
+                      {b.book.title}
+                    </h3>
+
+                    {/* Author */}
+                    <p className="text-gray-500 text-sm mb-3 flex items-center gap-1.5">
+                      <User size={13} className="text-gray-400" />
+                      {b.book.author?.name || "مؤلف غير معروف"}
+                    </p>
+
+                    {/* Description */}
+                    <p className="text-gray-500 text-sm line-clamp-2 mb-5 flex-1">
+                      {b.book.description}
+                    </p>
+
+                    {/* Actions */}
+                    <div className="flex gap-2 mt-auto">
+                      {/* View Details */}
+                      <Link
+                        href={`/books/${b.book.id}`}
+                        className="flex-1 text-center bg-primary hover:bg-hover-dark text-white rounded-xl py-2.5 px-4 text-sm font-medium transition-all duration-200 hover:shadow-lg hover:shadow-primary/25"
+                      >
+                        عرض التفاصيل
+                      </Link>
+
+                      {/* Remove from Favorites */}
+                      {favLoading === b.book.id ? (
+                        <div className="w-11 h-10 flex items-center justify-center border border-gray-200 rounded-xl">
+                          <LoadingSpinner />
+                        </div>
+                      ) : (
+                        <motion.button
+                          whileTap={{ scale: 0.82 }}
+                          whileHover={{ scale: 1.08 }}
+                          transition={{
+                            type: "spring",
+                            stiffness: 400,
+                            damping: 17,
+                          }}
+                          onClick={async () => {
+                            setFavLoading(b.book.id);
+                            await removeFromFavFn(b.book.id);
+                            setFavLoading(null);
+                          }}
+                          className="w-11 h-10 flex items-center justify-center rounded-xl border border-red-200 text-red-400 hover:bg-red-50 hover:border-red-300 transition-all duration-200 cursor-pointer"
+                          aria-label="إزالة من المفضلة"
+                        >
+                          <Trash2 size={16} />
+                        </motion.button>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </motion.div>
+        )}
+
+        {/* ── Empty State ──────────────────────────────────────────────── */}
+        {!loading && !error && sortedBooks.length === 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="text-center py-20"
+          >
+            <motion.div
+              animate={{ scale: [1, 1.06, 1] }}
+              transition={{
+                repeat: Infinity,
+                duration: 2.4,
+                ease: "easeInOut",
+              }}
+              className="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6"
+              style={{ background: "rgba(233,30,99,0.08)" }}
+            >
+              <Heart size={40} className="text-pink-300" />
+            </motion.div>
+
+            {favoritesBooks.length === 0 ? (
+              <>
+                <h3 className="text-xl font-semibold text-gray-700 mb-2">
+                  قائمة مفضلتك فارغة
+                </h3>
+                <p className="text-gray-400 text-sm max-w-xs mx-auto mb-6">
+                  لم تضف أي كتب بعد. تصفح المكتبة وأضف ما يعجبك!
+                </p>
+                <Link
+                  href="/books"
+                  className="inline-block px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-medium hover:bg-hover-dark transition-colors"
+                >
+                  تصفح الكتب
+                </Link>
+              </>
+            ) : (
+              <>
+                <h3 className="text-xl font-semibold text-gray-700 mb-2">
+                  لا توجد نتائج
+                </h3>
+                <p className="text-gray-400 text-sm max-w-xs mx-auto">
+                  لم نعثر على كتب تطابق بحثك. حاول تعديل الفلاتر.
+                </p>
+                <button
+                  onClick={clearFilters}
+                  className="mt-6 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-medium hover:bg-hover-dark transition-colors cursor-pointer"
+                >
+                  مسح الفلاتر
+                </button>
+              </>
+            )}
+          </motion.div>
+        )}
+      </div>
+    </div>
   );
 };
 

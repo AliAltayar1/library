@@ -1,306 +1,515 @@
 "use client";
 
 /**
- * AICHAT Component - AI-Powered Chat Interface with Book Recommendations
+ * AICHAT Component - Premium AI Chat Interface with Book Recommendations
  *
- * @description This component provides an interactive AI chat interface with the following features:
- * - Real-time message streaming with AI assistant
- * - File upload capability (especially images)
- * - Book recommendations display in horizontal scrollable carousel
- * - One-click book summary generation through AI
- * - Message history with user/assistant distinction
- * - Loading states and error handling
+ * @description Redesigned to match the app's premium UI language:
+ * - Dark navy hero header with decorative orbs & Framer Motion entrance
+ * - Glassmorphism chat area with styled user / assistant message bubbles
+ * - Animated typing indicator
+ * - Rich RTL input bar with file attachment, send/stop actions
+ * - Horizontally scrollable book recommendations carousel
+ * - Prompt suggestion chips for quick starts
  *
  * @uses Vercel AI SDK (@ai-sdk/react) for chat functionality
- * @returns {JSX.Element} The AI Chat page component
  */
 
 import React, { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
+import {
+  Bot,
+  BookOpen,
+  Paperclip,
+  Send,
+  Square,
+  Sparkles,
+  User,
+  Wand2,
+  X,
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 import { getBooks } from "../../../../lib/books/getBooks";
 import LoadingSpinner from "@/app/UI/LoadingSpinner";
 import { ChatMessage } from "@/app/components/chatMarkdown";
 
+// ─── Animation Variants ────────────────────────────────────────────────────────
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 20 },
+  visible: (delay = 0) => ({
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5, delay, ease: "easeOut" },
+  }),
+};
+
+const msgVariants = {
+  hidden: { opacity: 0, y: 12, scale: 0.97 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { duration: 0.3, ease: [0.25, 0.8, 0.25, 1] },
+  },
+};
+
+// ─── Typing Indicator ──────────────────────────────────────────────────────────
+
+const TypingIndicator = () => (
+  <motion.div
+    variants={msgVariants}
+    initial="hidden"
+    animate="visible"
+    className="flex items-end gap-3"
+  >
+    <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+      <Bot size={16} className="text-white" />
+    </div>
+    <div className="glass-card rounded-2xl rounded-bl-sm px-5 py-3 flex items-center gap-1.5">
+      {[0, 1, 2].map((i) => (
+        <motion.div
+          key={i}
+          className="w-2 h-2 rounded-full bg-primary/50"
+          animate={{ y: [0, -6, 0] }}
+          transition={{
+            duration: 0.7,
+            repeat: Infinity,
+            delay: i * 0.15,
+            ease: "easeInOut",
+          }}
+        />
+      ))}
+    </div>
+  </motion.div>
+);
+
+// ─── Quick Prompt Chips ────────────────────────────────────────────────────────
+
+const QUICK_PROMPTS = [
+  { icon: BookOpen, label: "اقترح لي كتاباً للقراءة هذا الأسبوع" },
+  { icon: Wand2, label: "ما هي أفضل كتب الخيال العلمي؟" },
+  { icon: Sparkles, label: "أريد كتاباً يحسّن مهاراتي في القيادة" },
+  { icon: BookOpen, label: "قدّم لي ملخصاً لفلسفة سقراط" },
+];
+
+// ─── Main Component ────────────────────────────────────────────────────────────
+
 const AICHAT = () => {
-  // ============ State Management ============
-
-  // User input state - stores the current message being typed
+  // ── State ──────────────────────────────────────────────────────────────────
   const [input, setInput] = useState("");
-
-  // File attachments state - stores FileList object of uploaded files
   const [files, setFiles] = useState(undefined);
-
-  // Books data state - stores array of book objects for recommendations
   const [books, setBooks] = useState([]);
-
-  // Loading state for books fetch operation
   const [loading, setLoading] = useState(false);
-
-  // Error state for books fetch operation
   const [booksError, setBooksError] = useState(null);
 
-  // File input reference - used to reset file input after submission
   const fileInputRef = useRef(null);
+  const messagesContainerRef = useRef(null);
 
-  // ============ AI Chat Hook ============
-
-  /**
-   * useChat hook from Vercel AI SDK
-   * Manages chat state, message streaming, and API communication
-   *
-   * @property {Array} messages - Array of all chat messages (user and assistant)
-   * @property {Function} sendMessage - Function to send a new message to the AI
-   * @property {string} status - Current chat status: 'idle' | 'submitted' | 'streaming' | 'success' | 'error'
-   * @property {Error} error - Error object if an error occurred during chat
-   * @property {Function} stop - Function to stop the current streaming response
-   */
+  // ── AI Chat Hook ───────────────────────────────────────────────────────────
   const { messages, sendMessage, status, error, stop } = useChat({
-    transport: new DefaultChatTransport({
-      api: "/api/chat", // API endpoint for chat processing
-    }),
+    transport: new DefaultChatTransport({ api: "/api/chat" }),
   });
 
-  // ============ API Functions ============
+  const isStreaming = status === "submitted" || status === "streaming";
 
-  /**
-   * Fetches all books from the API to display as recommendations
-   *
-   * @async
-   * @function fetchBooks
-   * @returns {Promise<void>}
-   */
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  const scrollToBottom = () => {
+    const el = messagesContainerRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  };
+
+  const handleSubmit = (customMsg) => {
+    const text = customMsg ?? input;
+    if (!text.trim() && !files) return;
+    sendMessage({ text, files });
+    setInput("");
+    setFiles(undefined);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const fetchBooks = async () => {
     setLoading(true);
     try {
       const data = await getBooks();
       setBooks(data);
-    } catch (error) {
-      console.error("Error fetching books:", error);
-
-      console.error("Error fetching books:", error.message);
-
-      setBooksError(error.message || "Failed to fetch books");
+    } catch (err) {
+      setBooksError(err.message || "فشل تحميل الكتب");
     } finally {
       setLoading(false);
     }
   };
 
-  // ============ Event Handlers ============
-
-  /**
-   * Handles message submission to the AI chat
-   * Sends either a custom message (for book summaries) or user input
-   * Clears input and file attachments after sending
-   *
-   * @function handleSubmit
-   * @param {string} [customMsg] - Optional custom message to send (used for book summaries)
-   * @returns {void}
-   */
-  const handleSubmit = (customMsg) => {
-    // Send message with text and optional file attachments
-    sendMessage({ text: customMsg ? customMsg : input, files });
-
-    // Clear input field after sending
-    setInput("");
-
-    // Clear file attachments
-    setFiles(undefined);
-
-    // Reset file input element to clear selected files from UI
-    if (fileInputRef) fileInputRef.current.value = "";
-  };
-
-  // ============ Side Effects ============
-
-  /**
-   * Fetch books on component mount to display recommendations
-   */
+  // ── Effects ────────────────────────────────────────────────────────────────
   useEffect(() => {
     fetchBooks();
   }, []);
 
-  // ============ JSX Render ============
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, isStreaming]);
 
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="px-10 my-10">
-      {/* ============ Chat Messages Display Area ============ */}
-      <div className={`bg-gray-50 w-full min-h-36 mb-5 p-5 `}>
-        {/* Map through all messages and display them */}
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`p-5 mb-2 ${
-              msg.role === "user" ? "bg-gray-100 rounded-2xl " : ""
-            }`}
-          >
-            {/* Message sender label - distinguishes between user and assistant */}
-            <div className="font-semibold mb-1">
-              {msg.role === "user" ? "أنا:" : "المساعد الذكي:"}
-            </div>
-
-            {/* Render message parts - can be text or file attachments */}
-            {msg.parts.map((part, index) => {
-              // Render text content with markdown formatting
-              return part.type === "text" ? (
-                <div key={index} className="text-gray-600">
-                  {<ChatMessage text={part.text} />}
-                </div>
-              ) : part.type === "file" ? (
-                // Render image attachments if mediaType starts with "image/"
-                part.mediaType?.startsWith("image/") ? (
-                  <span className="inline-block min-w-[50px] min-h-[50px] relative ms-0.5">
-                    <Image
-                      key={`${msg.id} - ${index}`}
-                      src={part.url}
-                      alt={part.filename ?? `attachment number ${index}`}
-                      fill
-                      className="object-contain"
-                    />
-                  </span>
-                ) : null
-              ) : null;
-            })}
-          </div>
-        ))}
-
-        {/* Display error message if chat error occurs */}
-        {error && <div className="text-red-500">{error.message}</div>}
-
-        {/* Display loading spinner while AI is generating response */}
-        {(status === "submitted" || status === "streaming") && (
-          <div className="w-5 h-5 border-4 m-5 border-blue-500 border-dashed rounded-full animate-spin"></div>
-        )}
-      </div>
-
-      {/* ============ Chat Input Form ============ */}
-      <form
-        className="w-full max-w-md m-auto mb-10"
-        onSubmit={(e) => {
-          e.preventDefault();
-          handleSubmit();
+    <div className="min-h-screen" dir="rtl">
+      {/* ── Hero Header ──────────────────────────────────────────────────── */}
+      <div
+        className="relative overflow-hidden mb-8"
+        style={{
+          background:
+            "linear-gradient(135deg, #0F1B3C 0%, #1a2f5e 60%, #0f2251 100%)",
         }}
       >
-        <div>
-          {/* File Upload Section */}
-          <div>
-            {/* Custom file upload label with attachment icon */}
-            <label
-              htmlFor="file-upload"
-              className="flex gap-1 cursor-pointer mb-1"
-            >
-              <Image
-                src="/attachment-svgrepo-com.svg"
-                alt="attachment-svg"
-                width={20}
-                height={20}
-              />
-              {/* Display number of attached files or prompt to attach */}
-              {files?.length ? `${files.length} ملفات مرفقة` : "أرفق الملفات"}
-            </label>
+        {/* Decorative orbs */}
+        <div
+          className="absolute -top-16 -left-16 w-80 h-80 rounded-full opacity-10 pointer-events-none"
+          style={{
+            background: "radial-gradient(circle, #D4930A, transparent 70%)",
+          }}
+        />
+        <div
+          className="absolute -bottom-20 -right-10 w-96 h-96 rounded-full opacity-10 pointer-events-none"
+          style={{
+            background: "radial-gradient(circle, #f6c54e, transparent 70%)",
+          }}
+        />
 
-            {/* Hidden file input - triggered by label click */}
-            <input
-              id="file-upload"
-              type="file"
-              multiple
-              ref={fileInputRef}
-              className="hidden"
-              onChange={(e) => {
-                if (e.target.files) setFiles(e.target.files);
-              }}
-            />
-          </div>
+        <div className="container py-12 relative z-10">
+          {/* Badge */}
+          <motion.div
+            custom={0}
+            variants={fadeUp}
+            initial="hidden"
+            animate="visible"
+            className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-1.5 mb-5"
+          >
+            <Bot size={14} className="text-amber-400" />
+            <span className="text-amber-300 text-sm font-medium">
+              المساعد الذكي
+            </span>
+          </motion.div>
 
-          {/* Message Input and Submit Section */}
-          <div className="bg-white w-full flex justify-center sm:justify-between items-center gap-x-2 gap-y-1 py-3 px-3 rounded-md flex-wrap">
-            {/* Text input for user message */}
-            <input
-              type="text"
-              placeholder="كيف يمكنني مساعدتك"
-              className="outline-0 h-full px-3 flex-1 border border-gray-200 rounded-sm py-1"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-            />
+          {/* Title */}
+          <motion.h1
+            custom={0.08}
+            variants={fadeUp}
+            initial="hidden"
+            animate="visible"
+            className="text-4xl md:text-5xl font-bold text-white mb-3"
+          >
+            تحدّث مع <span className="gradient-text">المكتبة الذكية</span>
+          </motion.h1>
 
-            {/* Conditional button - Stop or Send based on chat status */}
-            {status === "submitted" || status === "streaming" ? (
-              // Stop button - appears while AI is generating response
-              <button
-                onClick={stop}
-                className="bg-red-500 py-1.5 px-5 rounded-sm text-white cursor-pointer hover:bg-red-600"
-              >
-                إيقاف
-              </button>
-            ) : (
-              // Send button - appears when chat is idle
-              <button
-                type="submit"
-                className="bg-blue-500 py-1.5 px-5 rounded-sm text-white cursor-pointer hover:bg-blue-600"
-              >
-                إرسال
-              </button>
+          {/* Subtitle */}
+          <motion.p
+            custom={0.16}
+            variants={fadeUp}
+            initial="hidden"
+            animate="visible"
+            className="text-white/70 text-base max-w-md"
+          >
+            اسأل عن أي كتاب، احصل على توصيات مخصصة، أو اطلب ملخصاً فورياً
+            بمساعدة الذكاء الاصطناعي.
+          </motion.p>
+        </div>
+      </div>
+
+      {/* ── Main Layout ──────────────────────────────────────────────────── */}
+      <div className="container pb-16 flex flex-col gap-6">
+        {/* ── Chat Area ────────────────────────────────────────────────── */}
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.15 }}
+          className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden"
+        >
+          {/* Messages */}
+          <div
+            ref={messagesContainerRef}
+            className="p-6 min-h-[340px] max-h-[520px] overflow-y-auto flex flex-col gap-5"
+          >
+            {messages.length === 0 && (
+              <div className="flex flex-col items-center justify-center h-full py-12 text-center gap-3">
+                <div
+                  className="w-16 h-16 rounded-2xl flex items-center justify-center mb-2"
+                  style={{ background: "rgba(15,27,60,0.07)" }}
+                >
+                  <Bot size={28} className="text-primary" />
+                </div>
+                <p className="font-semibold text-gray-700 text-lg">
+                  كيف يمكنني مساعدتك اليوم؟
+                </p>
+                <p className="text-gray-400 text-sm max-w-xs">
+                  اسأل عن كتاب، أو اطلب توصية أدبية، أو جرّب أحد الاقتراحات
+                  أدناه.
+                </p>
+
+                {/* Quick prompts */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-4 w-full max-w-lg">
+                  {QUICK_PROMPTS.map(({ icon: Icon, label }) => (
+                    <button
+                      key={label}
+                      onClick={() => handleSubmit(label)}
+                      className="flex items-center gap-2.5 text-right px-4 py-3 rounded-xl border border-gray-200 bg-gray-50/70 hover:border-primary/40 hover:bg-primary/5 text-sm text-gray-600 hover:text-primary transition-all duration-200 cursor-pointer"
+                    >
+                      <Icon size={15} className="text-primary flex-shrink-0" />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Message list */}
+            <AnimatePresence initial={false}>
+              {messages.map((msg) => {
+                const isUser = msg.role === "user";
+                return (
+                  <motion.div
+                    key={msg.id}
+                    variants={msgVariants}
+                    initial="hidden"
+                    animate="visible"
+                    className={`flex items-end gap-3 ${isUser ? "flex-row-reverse" : ""}`}
+                  >
+                    {/* Avatar */}
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                        isUser ? "bg-accent" : "bg-primary"
+                      }`}
+                    >
+                      {isUser ? (
+                        <User size={15} className="text-white" />
+                      ) : (
+                        <Bot size={15} className="text-white" />
+                      )}
+                    </div>
+
+                    {/* Bubble */}
+                    <div
+                      className={`max-w-[75%] px-5 py-3 rounded-2xl text-sm leading-relaxed ${
+                        isUser
+                          ? "bg-primary text-white rounded-br-sm"
+                          : "glass-card rounded-bl-sm text-gray-700"
+                      }`}
+                    >
+                      <p
+                        className={`text-xs font-semibold mb-1.5 ${
+                          isUser ? "text-white/70" : "text-primary"
+                        }`}
+                      >
+                        {isUser ? "أنت" : "المساعد الذكي"}
+                      </p>
+
+                      {msg.parts.map((part, index) =>
+                        part.type === "text" ? (
+                          <div key={index}>
+                            <ChatMessage text={part.text} />
+                          </div>
+                        ) : part.type === "file" &&
+                          part.mediaType?.startsWith("image/") ? (
+                          <div
+                            key={index}
+                            className="relative mt-2 rounded-lg overflow-hidden w-48 h-32"
+                          >
+                            <Image
+                              src={part.url}
+                              alt={part.filename ?? `attachment-${index}`}
+                              fill
+                              className="object-cover"
+                            />
+                          </div>
+                        ) : null,
+                      )}
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+
+            {/* Typing indicator */}
+            {isStreaming && <TypingIndicator />}
+
+            {/* Error */}
+            {error && (
+              <div className="text-red-500 text-sm bg-red-50 border border-red-100 rounded-xl px-4 py-2.5">
+                {error.message}
+              </div>
             )}
           </div>
-        </div>
-      </form>
 
-      {/* ============ Books Recommendations Carousel ============ */}
-      <div className="flex gap-x-3 overflow-auto p-2">
-        {/* Show loading spinner while fetching books */}
-        {loading && <LoadingSpinner />}
-
-        {/* Show error message if books fetch failed */}
-        {booksError && <div className="text-red-500">{booksError}</div>}
-
-        {/* Display books as cards in horizontal scrollable list */}
-        {books.length > 0
-          ? books.map((book) => (
-              <div
-                key={book.id}
-                className="bg-white rounded-xl transition-shadow duration-200 shadow-xl flex flex-col items-start hover:shadow-2xl p-4 min-w-full sm:min-w-[300px] relative"
-              >
-                {/* Category badge positioned absolutely in top-left corner */}
-                <span className="bg-accent text-white px-2 py-1 rounded absolute top-2 left-2 z-10">
-                  {book.category?.name || "لا يوجد فئة"}
-                </span>
-
-                {/* Book cover image */}
-                <div className="aspect-[3/4] relative mb-4 overflow-hidden rounded-lg w-full h-full">
-                  <Image
-                    src={book.image || "/placeholder.svg"}
-                    alt={book.title}
-                    className="object-cover w-full h-full"
-                    fill
-                  />
-                </div>
-
-                {/* Book title */}
-                <span className="font-medium mb-2">{book.title}</span>
-
-                {/* Book author with fallback text */}
-                <span className="text-gray-500 text-start">
-                  {book.author?.name || "لا يوجد مؤلف"}
-                </span>
-
-                {/* Book summary button - generates AI summary when clicked */}
-                <button
-                  onClick={() => {
-                    // Create Arabic prompt asking AI to summarize the book
-                    const prompt = `لخصلي كتاب ${book.title} المكتوب بقلم ${book.author?.name} الذي نشر بتاريخ ${book.publication_year} بشكل مفهوم وجميل وشامل`;
-
-                    // Submit the prompt as a custom message to the AI
-                    handleSubmit(prompt);
-                  }}
-                  className="bg-primary-light rounded-md py-1.5 px-4 w-full text-white cursor-pointer hover:bg-hover-dark transition-colors duration-200 mt-3"
+          {/* ── Input Bar ────────────────────────────────────────────── */}
+          <div className="border-t border-gray-100 px-4 py-3">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSubmit();
+              }}
+              className="flex items-center gap-3"
+            >
+              {/* File attachment */}
+              <div className="relative flex-shrink-0">
+                <label
+                  htmlFor="file-upload"
+                  className="w-9 h-9 flex items-center justify-center rounded-xl border border-gray-200 text-gray-400 hover:border-primary/40 hover:text-primary hover:bg-primary/5 transition-all duration-200 cursor-pointer"
                 >
-                  تلخيص
-                </button>
+                  <Paperclip size={16} />
+                </label>
+                <input
+                  id="file-upload"
+                  type="file"
+                  multiple
+                  ref={fileInputRef}
+                  className="hidden"
+                  onChange={(e) => {
+                    if (e.target.files) setFiles(e.target.files);
+                  }}
+                />
+                {files?.length > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-accent text-white text-[9px] flex items-center justify-center font-bold">
+                    {files.length}
+                  </span>
+                )}
               </div>
-            ))
-          : ""}
+
+              {/* Text input */}
+              <div className="flex-1 relative">
+                <input
+                  type="text"
+                  placeholder="اكتب سؤالك هنا..."
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl py-2.5 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all duration-200 bg-gray-50/60 placeholder:text-gray-400"
+                />
+                {/* Clear attached files indicator */}
+                {files?.length > 0 && (
+                  <div className="flex items-center gap-1 mt-1.5 text-xs text-gray-500">
+                    <Paperclip size={11} />
+                    <span>{files.length} ملفات مرفقة</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFiles(undefined);
+                        if (fileInputRef.current)
+                          fileInputRef.current.value = "";
+                      }}
+                      className="ml-1 text-red-400 hover:text-red-600 cursor-pointer"
+                    >
+                      <X size={11} />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Send / Stop button */}
+              {isStreaming ? (
+                <button
+                  type="button"
+                  onClick={stop}
+                  className="w-10 h-10 flex items-center justify-center rounded-xl bg-red-500 text-white hover:bg-red-600 transition-colors duration-200 cursor-pointer flex-shrink-0"
+                  aria-label="إيقاف"
+                >
+                  <Square size={16} fill="white" />
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={!input.trim() && !files}
+                  className="w-10 h-10 flex items-center justify-center rounded-xl bg-primary text-white hover:bg-hover-dark transition-colors duration-200 cursor-pointer flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                  aria-label="إرسال"
+                >
+                  <Send size={16} />
+                </button>
+              )}
+            </form>
+          </div>
+        </motion.div>
+
+        {/* ── Books Recommendations Carousel ────────────────────────────── */}
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.25 }}
+        >
+          {/* Section header */}
+          <div className="flex items-center gap-2 mb-4">
+            <div
+              className="w-8 h-8 rounded-xl flex items-center justify-center"
+              style={{ background: "rgba(212,147,10,0.10)" }}
+            >
+              <BookOpen size={16} className="text-accent" />
+            </div>
+            <h2 className="font-semibold text-gray-800">توصيات الكتب</h2>
+            <span className="text-xs text-gray-400 mr-auto">
+              انقر على "تلخيص" لتوليد ملخص فوري بالذكاء الاصطناعي
+            </span>
+          </div>
+
+          {loading && (
+            <div className="flex justify-center py-8">
+              <LoadingSpinner />
+            </div>
+          )}
+
+          {booksError && (
+            <div className="text-red-500 text-sm bg-red-50 border border-red-100 rounded-xl px-4 py-3">
+              {booksError}
+            </div>
+          )}
+
+          {!loading && books.length > 0 && (
+            <div className="flex gap-4 overflow-x-auto pb-3 custom-scroll">
+              {books.map((book, i) => (
+                <motion.div
+                  key={book.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.05 * i }}
+                  className="book-card flex flex-col flex-shrink-0 w-[220px]"
+                >
+                  {/* Cover */}
+                  <div className="relative w-full h-[240px] cover-wrap">
+                    <Image
+                      src={book.image || "/placeholder.svg"}
+                      alt={book.title}
+                      fill
+                      className="object-cover"
+                      sizes="220px"
+                    />
+                    <div className="cover-overlay" />
+                    {/* Category badge */}
+                    <span className="absolute top-2 right-2 z-10 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-accent/90 text-white">
+                      {book.category?.name || "عام"}
+                    </span>
+                  </div>
+
+                  {/* Body */}
+                  <div className="flex flex-col flex-1 p-4">
+                    <h3 className="font-bold text-gray-900 text-sm mb-1 line-clamp-2 leading-snug">
+                      {book.title}
+                    </h3>
+                    <p className="text-gray-500 text-xs mb-3 flex-1">
+                      {book.author?.name || "مؤلف غير معروف"}
+                    </p>
+
+                    <button
+                      onClick={() => {
+                        const prompt = `لخصلي كتاب "${book.title}" المكتوب بقلم ${book.author?.name} الذي نُشر بتاريخ ${book.publication_year} بشكل مفهوم وجميل وشامل`;
+                        handleSubmit(prompt);
+                      }}
+                      className="w-full flex items-center justify-center gap-1.5 bg-primary hover:bg-hover-dark text-white rounded-xl py-2 text-xs font-medium transition-colors duration-200 cursor-pointer"
+                    >
+                      <Sparkles size={12} />
+                      تلخيص
+                    </button>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </motion.div>
       </div>
     </div>
   );

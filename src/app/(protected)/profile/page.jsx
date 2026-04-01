@@ -1,34 +1,25 @@
 "use client";
 
-/**
- * Profile Component - User Profile Dashboard Page
- *
- * @description Comprehensive user profile page with tabbed interface displaying:
- * - User information header (name, email, join date, avatar initials)
- * - Statistics cards (borrowed books count, overdue books, favorites count)
- * - Overdue books alert banner
- * - Three tabs with different views:
- *   1. Borrowed Books - Currently borrowed books with return request functionality
- *   2. Reading History - Previously borrowed and returned books with re-borrow option
- *   3. Favorites - User's favorite books with remove functionality (limited to 3 items)
- * - Empty states for each tab with call-to-action buttons
- * - Loading states and error handling for all data operations
- *
- * @returns {JSX.Element} The Profile page component with tabbed interface
- */
-
 import {
   BookOpen,
   Calendar,
   Heart,
-  Redo2,
-  RotateCcw,
   Settings,
   TriangleAlert,
+  TrendingUp,
+  Sparkles,
+  User,
+  Activity,
 } from "lucide-react";
+import ProfileStatCard from "./components/ProfileStatCard";
+import SectionTitle from "./components/SectionTitle";
+import TabBtn from "./components/TabBtn";
+import BorrowingTab from "./components/BorrowingTab";
+import ReadingHistoryTab from "./components/ReadingHistoryTab";
+import FavoritesTab from "./components/FavoritesTab";
+import ActivityTab from "./components/ActivityTab";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
-import Image from "next/image";
 import { toast } from "sonner";
 import { borrowBook } from "../../../../lib/user/borrow";
 import LoadingSpinner from "@/app/UI/LoadingSpinner";
@@ -38,95 +29,65 @@ import { returnBookRequest } from "../../../../lib/user/returnBookRequest";
 import { profileReturned } from "../../../../lib/user/profileReturend";
 import { getFavoritesBooks } from "../../../../lib/favorite/getFavBook";
 import { removeFromFav } from "../../../../lib/favorite/removeFromFav";
+import { unregisterActivity } from "../../../../lib/activities/unregisterActivity";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
+import { NAVY, NAVY2, GOLD, GOLD2, PARCH, PIE_COLORS } from "@/lib/constants/colors";
 
+/* ═══════════════════════════════════════════════════════════════
+   Main Profile Page
+   ═══════════════════════════════════════════════════════════════ */
 const Profile = () => {
-  // ============ State Management ============
-
-  // Active tab state - controls which tab content is displayed
-  // Values: "borrowing" | "readingHistory" | "favorites"
+  /* ── State ─────────────────────────────────────────────────── */
   const [tabs, setTabs] = useState("borrowing");
-
-  // User information state - stores complete user profile data
   const [userInfo, setUserInfo] = useState({
-    username: "Demo User",
-    email: "demo@mail.com",
-    first_name: "Demo",
-    last_name: "User",
-    date_joined: "2000-01-01",
+    username: "",
+    email: "",
+    first_name: "",
+    last_name: "",
+    date_joined: "",
     borrowed_books_count: 0,
+    overdue_books_count: 0,
+    favorites_count: 0,
   });
-
-  // Loading state for user info fetch operation
   const [userInfoLoading, setUserInfoLoading] = useState(false);
-
-  // Borrowed books state - stores array of currently borrowed book objects
   const [borrowedBooks, setBorrowedBooks] = useState([]);
-
-  // Loading state for borrowed books fetch operation
   const [borrowedBooksLoading, setBorrowedBooksLoading] = useState(false);
-
-  // Error state for borrowed books fetch operation
   const [borrowedBooksError, setBorrowedBooksError] = useState(null);
-
-  // Books log state - stores array of previously borrowed/returned book objects (reading history)
   const [booksLog, setBooksLog] = useState([]);
-
-  // Loading state for books log fetch operation
   const [booksLogLoading, setBooksLogLoading] = useState(false);
-
-  // Error state for books log fetch operation
   const [booksLogError, setBooksLogError] = useState(null);
-
-  // Favorites books state - stores array of user's favorite book objects
   const [favoritesBooks, setFavoritesBooks] = useState([]);
-
-  // Loading state for favorites fetch operation
   const [favoritesBooksloading, setFavoritesBooksLoading] = useState(false);
-
-  // Error state for favorites fetch operation
   const [favoritesBooksError, setFavoritesBooksError] = useState(null);
-
-  // Favorite removal loading state - stores the ID of book being removed
   const [favLoading, setFavLoading] = useState(false);
-
-  // Return book loading state - stores the borrowed record ID being processed
   const [returnBookLoading, setReturnBookLoading] = useState(null);
-
-  // Borrow book loading state - stores the book ID being borrowed
   const [borrowBookLoading, setBorrowBookLoading] = useState(null);
+  const [activities, setActivities] = useState([]);
+  const [activityToggleLoading, setActivityToggleLoading] = useState(null);
 
-  // ============ API Functions ============
-
-  /**
-   * Fetches the current user's profile information from the API
-   * Includes username, email, name, join date, and book counts
-   *
-   * @async
-   * @function getUserProfileFn
-   * @returns {Promise<void>}
-   * @throws {Error} Displays error toast if fetch fails
-   */
+  /* ── API Functions (unchanged logic) ───────────────────────── */
   const getUserProfileFn = async () => {
     setUserInfoLoading(true);
     try {
       const data = await profile();
       setUserInfo(data);
+
+      //set the registered activity
+      setActivities(data.activities);
     } catch (error) {
-      toast.error(error.message || "Failed to fetch books");
+      toast.error(error.message || "Failed to fetch profile");
     } finally {
       setUserInfoLoading(false);
     }
   };
 
-  /**
-   * Fetches all currently borrowed books for the user
-   * Includes book details, borrow date, due date, late status, and return request status
-   *
-   * @async
-   * @function getBorrowedBooksFn
-   * @returns {Promise<void>}
-   * @throws {Error} Displays error toast if fetch fails
-   */
   const getBorrowedBooksFn = async () => {
     setBorrowedBooksLoading(true);
     try {
@@ -134,21 +95,12 @@ const Profile = () => {
       setBorrowedBooks(data);
     } catch (error) {
       setBorrowedBooksError(error.message || "Failed to fetch books");
-      toast.error(error.message || "Failed to fetch books");
+      toast.error(error.message);
     } finally {
       setBorrowedBooksLoading(false);
     }
   };
 
-  /**
-   * Fetches the user's reading history (previously borrowed and returned books)
-   * Used to display books log in the reading history tab
-   *
-   * @async
-   * @function getBooksLogFn
-   * @returns {Promise<void>}
-   * @throws {Error} Displays error toast if fetch fails
-   */
   const getBooksLogFn = async () => {
     setBooksLogLoading(true);
     try {
@@ -162,20 +114,9 @@ const Profile = () => {
     }
   };
 
-  /**
-   * Submits a return request for a borrowed book
-   * Refreshes borrowed books list after successful request
-   *
-   * @async
-   * @function returnBookRequestFn
-   * @param {number} bookId - The ID of the borrowed record to request return for
-   * @returns {Promise<void>}
-   * @throws {Error} Displays error toast if request fails
-   */
   const returnBookRequestFn = async (bookId) => {
     try {
       await returnBookRequest(bookId);
-      // Refresh borrowed books to update UI with return request status
       getBorrowedBooksFn();
       toast.success("تم طلب الإرجاع بنجاح");
     } catch (error) {
@@ -183,20 +124,9 @@ const Profile = () => {
     }
   };
 
-  /**
-   * Borrows a book (used for re-borrowing from reading history)
-   * Refreshes borrowed books list after successful borrow
-   *
-   * @async
-   * @function borrowBookFn
-   * @param {number} bookId - The ID of the book to borrow
-   * @returns {Promise<void>}
-   * @throws {Error} Displays error toast if borrow fails
-   */
   const borrowBookFn = async (bookId) => {
     try {
       await borrowBook(bookId);
-      // Refresh borrowed books list to show newly borrowed book
       getBorrowedBooksFn();
       toast.success("تمت الإستعارة بنجاح");
     } catch (error) {
@@ -204,14 +134,6 @@ const Profile = () => {
     }
   };
 
-  /**
-   * Fetches all favorite books for the current user
-   *
-   * @async
-   * @function getFavoritesBooksFn
-   * @returns {Promise<void>}
-   * @throws {Error} Displays error toast if fetch fails
-   */
   const getFavoritesBooksFn = async () => {
     setFavoritesBooksLoading(true);
     try {
@@ -225,35 +147,32 @@ const Profile = () => {
     }
   };
 
-  /**
-   * Removes a book from the user's favorites list
-   * Refreshes both favorites list and user profile to update counts
-   *
-   * @async
-   * @function removeFromFavFn
-   * @param {number} bookId - The ID of the book to remove from favorites
-   * @returns {Promise<void>}
-   * @throws {Error} Displays error toast if removal fails
-   */
   const removeFromFavFn = async (bookId) => {
     try {
-      const res = await removeFromFav(bookId);
-      // Refresh favorites list and user profile to update favorites count
+      await removeFromFav(bookId);
       getFavoritesBooksFn();
       getUserProfileFn();
       toast.success("تمت الإزالة من المفضلة");
     } catch (error) {
-      console.log(error.message);
-      toast.error("حث خطأ اثناء الإزالة من المفضلة بسبب: " + error.message);
+      toast.error("حدث خطأ اثناء الإزالة من المفضلة: " + error.message);
     }
   };
 
-  // ============ Side Effects ============
+  const unregisterActivityFn = async (id) => {
+    setActivityToggleLoading(id);
+    try {
+      await unregisterActivity(id);
+      getUserProfileFn();
+      toast.success("تم إلغاء التسجيل بنجاح.");
+      // Remove the activity from the list optimistically
+      setActivities((prev) => prev.filter((a) => a.activity_id !== id));
+    } catch (err) {
+      toast.error("حدث خطأ: " + (err.message || ""));
+    } finally {
+      setActivityToggleLoading(null);
+    }
+  };
 
-  /**
-   * Initial data fetch on component mount
-   * Loads user profile, borrowed books, reading history, and favorites
-   */
   useEffect(() => {
     getUserProfileFn();
     getBorrowedBooksFn();
@@ -261,501 +180,453 @@ const Profile = () => {
     getFavoritesBooksFn();
   }, []);
 
-  // ============ JSX Render ============
+  /* ── Derived chart data ─────────────────────────────────────── */
+  // Set of book IDs currently borrowed — used to disable re-borrow button
+  const borrowedBookIds = new Set(borrowedBooks.map((b) => b.book?.id));
+  const chartData = [
+    { name: "مُستعار حالياً", value: userInfo.borrowed_books_count || 0 },
+    { name: "سجل القراءة", value: booksLog.length || 0 },
+    { name: "المفضلة", value: userInfo.favorites_count || 0 },
+    { name: "متأخرة", value: userInfo.overdue_books_count || 0 },
+  ].filter((d) => d.value > 0);
 
+  const totalActivity = chartData.reduce((s, d) => s + d.value, 0);
+
+  const initials =
+    (userInfo.first_name?.[0] || "").toUpperCase() +
+    (userInfo.last_name?.[0] || "").toUpperCase();
+
+  const joinDate = userInfo.date_joined?.split("T")[0] || "";
+
+  /* ── Tier-based theme ───────────────────────────────────────── */
+  const tier = userInfo.tier; // "gold" | "silver" | "black" | undefined
+  const tierConfig = {
+    gold: {
+      heroBg: `linear-gradient(135deg, #1a1000 0%, #3b2500 40%, #0F1B3C 100%)`,
+      glow:
+        "radial-gradient(ellipse 55% 50% at 75% 50%, rgba(212,147,10,0.30) 0%, transparent 70%), " +
+        "radial-gradient(ellipse 35% 40% at 15% 60%, rgba(246,197,78,0.12) 0%, transparent 65%)",
+      badgeBg: "rgba(212,147,10,0.20)",
+      badgeColor: "#f6c54e",
+      badgeBorder: "1px solid rgba(212,147,10,0.45)",
+      badgeLabel: "🏆 عضو ذهبي",
+      nameStyle: { color: "#f6c54e" },
+      avatarBg: `linear-gradient(135deg, ${GOLD} 0%, ${GOLD2} 100%)`,
+      avatarColor: NAVY,
+      avatarShadow: "0 0 40px rgba(212,147,10,0.50)",
+    },
+    silver: {
+      heroBg: `linear-gradient(135deg, #0d1117 0%, #1c2333 40%, #0F1B3C 100%)`,
+      glow:
+        "radial-gradient(ellipse 55% 50% at 75% 50%, rgba(192,192,192,0.18) 0%, transparent 70%), " +
+        "radial-gradient(ellipse 35% 40% at 15% 60%, rgba(148,163,184,0.12) 0%, transparent 65%)",
+      badgeBg: "rgba(192,192,192,0.15)",
+      badgeColor: "#CBD5E1",
+      badgeBorder: "1px solid rgba(192,192,192,0.35)",
+      badgeLabel: "🥈 عضو فضي",
+      nameStyle: {
+        background:
+          "linear-gradient(90deg, #e2e8f0 0%, #94a3b8 50%, #fff 100%)",
+        WebkitBackgroundClip: "text",
+        WebkitTextFillColor: "transparent",
+        backgroundClip: "text",
+      },
+      avatarBg: "linear-gradient(135deg, #C0C0C0 0%, #a8a8a8 100%)",
+      avatarColor: NAVY,
+      avatarShadow: "0 0 40px rgba(192,192,192,0.45)",
+    },
+    black: {
+      heroBg: `linear-gradient(135deg, ${NAVY} 0%, ${NAVY2} 60%, #0c1628 100%)`,
+      glow:
+        "radial-gradient(ellipse 50% 40% at 80% 50%, rgba(212,147,10,0.08) 0%, transparent 70%), " +
+        "radial-gradient(ellipse 35% 30% at 15% 60%, rgba(79,172,254,0.06) 0%, transparent 65%)",
+      badgeBg: "rgba(255,255,255,0.08)",
+      badgeColor: "rgba(255,255,255,0.70)",
+      badgeBorder: "1px solid rgba(255,255,255,0.12)",
+      badgeLabel: "عضو",
+      nameStyle: { color: "white" },
+      avatarBg: "linear-gradient(135deg, #28292e 0%, #1a1a1f 100%)",
+      avatarColor: "white",
+      avatarShadow: "0 0 24px rgba(0,0,0,0.50)",
+    },
+  }[tier] ?? {
+    // default (no tier)
+    heroBg: `linear-gradient(135deg, ${NAVY} 0%, ${NAVY2} 60%, #0c1628 100%)`,
+    glow:
+      "radial-gradient(ellipse 50% 40% at 80% 50%, rgba(212,147,10,0.10) 0%, transparent 70%), " +
+      "radial-gradient(ellipse 35% 30% at 15% 60%, rgba(79,172,254,0.07) 0%, transparent 65%)",
+    badgeBg: "rgba(212,147,10,0.15)",
+    badgeColor: GOLD2,
+    badgeBorder: "1px solid rgba(212,147,10,0.30)",
+    badgeLabel: "عضو نشط",
+    nameStyle: { color: "white" },
+    avatarBg: `linear-gradient(135deg, ${NAVY2} 0%, #0c1628 100%)`,
+    avatarColor: "white",
+    avatarShadow: "0 0 40px rgba(15,27,60,0.40)",
+  };
+
+  /* ── Render ─────────────────────────────────────────────────── */
   return (
-    <section className="profile container min-w-full my-10">
-      {/* Show loading spinner while fetching user info */}
-      {userInfoLoading && <LoadingSpinner />}
+    <div
+      dir="rtl"
+      className="overflow-x-hidden min-h-screen bg-background"
+    >
+      {/* ══════════════════════════════════════════════════════════
+          1. PROFILE HERO BANNER
+          ══════════════════════════════════════════════════════════ */}
+      <section
+        className="relative overflow-hidden py-14 px-4"
+        style={{ background: tierConfig.heroBg }}
+      >
+        {/* Glow blobs */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: tierConfig.glow }}
+        />
 
-      {/* Main profile content - only shown when user info is loaded */}
-      {!userInfoLoading && (
-        <>
-          {/* ============ Profile Header Section ============ */}
-          <section className="profile-heading flex justify-center md:justify-between gap-x-16 gap-y-10 flex-wrap">
-            {/* User Information Display */}
-            <div className="flex items-center gap-10 flex-wrap justify-center">
-              {/* User Avatar - displays first letter of first and last name */}
-              <div className="logo bg-white min-w-14 min-h-14 rounded-full w-fit flex items-center justify-center text-xl">
-                {userInfo.first_name?.[0]?.toUpperCase() +
-                  " " +
-                  userInfo.last_name?.[0]?.toUpperCase()}
-              </div>
-              {/* User Details - name, email, and join date */}
-              <div className="text-center sm:text-start">
-                {/* Full name in capitalized format */}
-                <div className="font-bold text-3xl mb-1 text-blue-950 capitalize">
-                  {userInfo.first_name + " " + userInfo.last_name}
-                </div>
-                {/* User email */}
-                <div className="text-gray-500 ">{userInfo.email}</div>
-                {/* Join date - splits ISO datetime string to show only date part */}
-                <div className="text-gray-500">
-                  عضو منذ <span>{userInfo.date_joined?.split("T")[0]}</span>
-                </div>
-              </div>
+        {userInfoLoading ? (
+          <div className="flex justify-center py-10">
+            <LoadingSpinner />
+          </div>
+        ) : (
+          <div className="container relative z-10 flex flex-col lg:flex-row items-center gap-8 lg:gap-12">
+            {/* Avatar circle */}
+            <div
+              className="w-24 h-24 rounded-2xl flex-shrink-0 flex items-center justify-center text-2xl font-black shadow-2xl"
+              style={{
+                background: tierConfig.avatarBg,
+                color: tierConfig.avatarColor,
+                boxShadow: tierConfig.avatarShadow,
+              }}
+            >
+              {initials || <User className="w-10 h-10" />}
             </div>
 
-            {/* Settings Navigation Button */}
-            <div className="settings flex items-center gap-3 flex-wrap justify-center">
-              <Link
-                href={"/settings"}
-                className="hover:bg-accent hover:text-white transition-colors duration-150 flex items-center gap-2 py-2 px-3 border border-gray-300 shadow rounded-lg"
+            {/* User info */}
+            <div className="flex-1 text-center lg:text-right">
+              <span
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold mb-3"
+                style={{
+                  background: tierConfig.badgeBg,
+                  color: tierConfig.badgeColor,
+                  border: tierConfig.badgeBorder,
+                }}
               >
-                <Settings />
-                الإعدادات
+                <Sparkles className="w-3 h-3" />
+                {tierConfig.badgeLabel}
+              </span>
+              <h1
+                className="text-3xl font-black capitalize leading-tight"
+                style={tierConfig.nameStyle}
+              >
+                {userInfo.first_name} {userInfo.last_name}
+              </h1>
+              <p
+                className="mt-1 text-sm text-white/60"
+              >
+                {userInfo.email}
+              </p>
+              {joinDate && (
+                <p
+                  className="mt-1.5 flex items-center gap-1.5 text-xs justify-center lg:justify-end text-white/45"
+                >
+                  <Calendar className="w-3.5 h-3.5" />
+                  عضو منذ {joinDate}
+                </p>
+              )}
+            </div>
+
+            {/* Settings */}
+            <div className="flex-shrink-0">
+              <Link href="/settings">
+                <button
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm cursor-pointer transition-all duration-300 hover:scale-105 bg-white/10 text-white border border-white/18"
+                >
+                  <Settings className="w-4 h-4" />
+                  الإعدادات
+                </button>
               </Link>
             </div>
-          </section>
+          </div>
+        )}
 
-          {/* ============ Statistics Cards Section ============ */}
-          <section className="information mt-10 flex gap-8 flex-wrap justify-center flex-col sm:flex-row">
-            {/* Currently Borrowed Books Count Card */}
-            <div className="borrowing min-h-44 bg-white rounded-2xl shadow border border-gray-300 p-8 flex gap-x-10 justify-between items-center flex-col sm:flex-row ">
-              <div className="text-primary-light  font-semibold flex flex-col items-center gap-1 whitespace-nowrap">
-                مُستعارة حالياً
-                <span className="text-2xl text-primary-light font-bold">
-                  {userInfo.borrowed_books_count}
-                </span>
+        {/* Diagonal clip */}
+        <div
+          className="absolute bottom-0 left-0 right-0 leading-[0]"
+        >
+          <svg
+            viewBox="0 0 1440 60"
+            xmlns="http://www.w3.org/2000/svg"
+            preserveAspectRatio="none"
+            className="w-full block h-[60px]"
+          >
+            <path d="M0,60 L1440,0 L1440,60 Z" fill={PARCH} />
+          </svg>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════
+          2. STATS CARDS
+          ══════════════════════════════════════════════════════════ */}
+      <section className="container py-10">
+        <div className="flex gap-4 flex-wrap justify-center sm:justify-start">
+          <ProfileStatCard
+            icon={BookOpen}
+            value={userInfo.borrowed_books_count}
+            label="مُستعار حالياً"
+            bgClass="bg-primary/[8%]"
+            iconClass="text-primary-light"
+          />
+          <ProfileStatCard
+            icon={TrendingUp}
+            value={booksLog.length}
+            label="سجل القراءة"
+            bgClass="bg-purple-100"
+            iconClass="text-purple-600"
+          />
+          <ProfileStatCard
+            icon={Heart}
+            value={userInfo.favorites_count}
+            label="المفضلة"
+            bgClass="bg-accent/[15%]"
+            iconClass="text-accent"
+          />
+          <ProfileStatCard
+            icon={TriangleAlert}
+            value={userInfo.overdue_books_count}
+            label="كتب متأخرة"
+            bgClass="bg-rose-50"
+            iconClass="text-rose-600"
+          />
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════
+          3. READING ACTIVITY CHART (Recharts)
+          ══════════════════════════════════════════════════════════ */}
+      {totalActivity > 0 && (
+        <section className="container pb-10">
+          <div className="glass-card rounded-2xl p-6 flex flex-col lg:flex-row items-center gap-8">
+            {/* Donut chart */}
+            <div className="w-full lg:w-72 h-64 flex-shrink-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={chartData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={58}
+                    outerRadius={96}
+                    paddingAngle={2}
+                    dataKey="value"
+                  >
+                    {chartData.map((_, i) => (
+                      <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      borderRadius: 12,
+                      border: `1px solid ${GOLD}33`,
+                      background: "#fff",
+                      fontSize: 13,
+                    }}
+                    formatter={(value, name) => [`${value} كتاب`, name]}
+                  />
+                  <Legend iconType="circle" iconSize={10} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Legend + bar summary */}
+            <div className="flex-1">
+              <SectionTitle>نشاط القراءة</SectionTitle>
+              <p className="text-sm mb-5 text-muted">
+                توزيع نشاطك القرائي عبر المكتبة — إجمالي {totalActivity} كتاب
+              </p>
+              <div className="flex flex-col gap-4">
+                {chartData.map((d, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <span
+                      className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                      style={{ background: PIE_COLORS[i % PIE_COLORS.length] }}
+                    />
+                    <span
+                      className="text-sm font-medium w-28 flex-shrink-0 text-primary"
+                    >
+                      {d.name}
+                    </span>
+                    <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden">
+                      <div
+                        className="h-2 rounded-full transition-all duration-700"
+                        style={{
+                          width: `${Math.round((d.value / totalActivity) * 100)}%`,
+                          background: PIE_COLORS[i % PIE_COLORS.length],
+                        }}
+                      />
+                    </div>
+                    <span
+                      className="text-sm font-bold w-8 text-left text-primary"
+                    >
+                      {d.value}
+                    </span>
+                  </div>
+                ))}
               </div>
-              <BookOpen size={40} className="text-primary-light " />
             </div>
-
-            {/* Overdue Books Count Card */}
-            <div className="late-books min-h-44 bg-white rounded-2xl shadow border border-gray-300 p-8 flex gap-x-10 justify-between items-center flex-col sm:flex-row">
-              <div className="text-red-500 font-semibold flex flex-col items-center gap-1">
-                كتب متأخرة
-                <span className="text-2xl text-red-500 font-bold ">
-                  {userInfo.overdue_books_count}
-                </span>
-              </div>
-              <TriangleAlert size={40} color="red" />
-            </div>
-
-            {/* Favorites Count Card */}
-            <div className="favorites min-h-44 bg-white rounded-2xl shadow border border-gray-300 p-8 flex gap-x-10 justify-between items-center flex-col sm:flex-row">
-              <div className="text-accent font-semibold flex flex-col items-center gap-1">
-                المفضلة
-                <span className="text-2xl text-accent font-bold ">
-                  {userInfo.favorites_count}
-                </span>
-              </div>
-              <Heart size={40} className="text-accent" />
-            </div>
-          </section>
-
-          {/* ============ Overdue Books Alert Banner ============ */}
-          {/* Only displayed when user has overdue books */}
-          {userInfo.overdue_books_count > 0 && (
-            <div className="late-book-alert border border-red-500 bg-white rounded-2xl p-8 flex items-center sm:flex-row flex-col gap-2 text-gray-500 mt-10">
-              <TriangleAlert color="red" size={24} />
-              لديك {userInfo.overdue_books_count} كتاب متأخر. يرجى إرجاعها في
-              أقرب وقت ممكن لتجنب الرسوم المتأخرة.
-            </div>
-          )}
-        </>
+          </div>
+        </section>
       )}
 
-      {/* ============ Tabbed Interface Section ============ */}
-      <section className="quick-tabs mt-12">
-        {/* Tab Navigation Buttons */}
-        <div className="tabs custom-scroll flex justify-between font-semibold text-blue-950 overflow-x-auto p-2">
-          {/* Borrowed Books Tab Button */}
-          <button
-            onClick={() => {
-              setTabs("borrowing");
-            }}
-            className={`${
-              tabs === "borrowing"
-                ? "transition-all duration-100  rounded-xl shadow-[0px_2px_3px_0px_rgba(0,0,0,0.09)]"
-                : ""
-            } cursor-pointer px-4 py-1.5 whitespace-nowrap flex-1`}
+      {/* ══════════════════════════════════════════════════════════
+          4. OVERDUE ALERT
+          ══════════════════════════════════════════════════════════ */}
+      {userInfo.overdue_books_count > 0 && (
+        <section className="container pb-6">
+          <div
+            className="rounded-2xl p-5 flex items-center gap-3 flex-wrap bg-rose-600/10 border border-rose-600/25"
+          >
+            <TriangleAlert
+              className="w-5 h-5 flex-shrink-0 text-rose-600"
+            />
+            <p className="text-sm font-medium text-rose-700">
+              لديك <strong>{userInfo.overdue_books_count}</strong> كتاب متأخر —
+              يرجى إرجاعها في أقرب وقت ممكن لتجنب الرسوم.
+            </p>
+          </div>
+        </section>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════
+          5. TABBED INTERFACE
+          ══════════════════════════════════════════════════════════ */}
+      <section className="container pb-16">
+        {/* Tab navigation */}
+        <div
+          className="flex gap-2 p-2 rounded-2xl mb-6 overflow-x-auto custom-scroll flex-nowrap bg-primary/[0.06]"
+        >
+          <TabBtn
+            active={tabs === "borrowing"}
+            onClick={() => setTabs("borrowing")}
+            icon={BookOpen}
           >
             الكتب المُستعارة
-          </button>
-
-          {/* Reading History Tab Button */}
-          <button
-            onClick={() => {
-              setTabs("readingHistory");
-            }}
-            className={`${
-              tabs === "readingHistory"
-                ? "transition-all duration-100  rounded-xl shadow-[0px_2px_3px_0px_rgba(0,0,0,0.09)]"
-                : ""
-            } cursor-pointer px-4 py-1.5 whitespace-nowrap flex-1`}
+            {borrowedBooks.length > 0 && (
+              <span
+                className="mr-1 px-1.5 py-0.5 rounded-full text-xs font-bold"
+                style={{
+                  background: tabs === "borrowing" ? GOLD : NAVY + "18",
+                  color: NAVY,
+                }}
+              >
+                {borrowedBooks.length}
+              </span>
+            )}
+          </TabBtn>
+          <TabBtn
+            active={tabs === "readingHistory"}
+            onClick={() => setTabs("readingHistory")}
+            icon={TrendingUp}
           >
             سجل القراءة
-          </button>
-
-          {/* Favorites Tab Button */}
-          <button
-            onClick={() => {
-              setTabs("favorites");
-            }}
-            className={`${
-              tabs === "favorites"
-                ? " transition-all duration-100  rounded-xl  shadow-[0px_2px_3px_0px_rgba(0,0,0,0.09)]"
-                : ""
-            } cursor-pointer px-4 py-1.5 flex-1`}
+            {booksLog.length > 0 && (
+              <span
+                className="mr-1 px-1.5 py-0.5 rounded-full text-xs font-bold"
+                style={{
+                  background: tabs === "readingHistory" ? GOLD : NAVY + "18",
+                  color: NAVY,
+                }}
+              >
+                {booksLog.length}
+              </span>
+            )}
+          </TabBtn>
+          <TabBtn
+            active={tabs === "favorites"}
+            onClick={() => setTabs("favorites")}
+            icon={Heart}
           >
             المفضلة
-          </button>
+            {favoritesBooks.length > 0 && (
+              <span
+                className="mr-1 px-1.5 py-0.5 rounded-full text-xs font-bold"
+                style={{
+                  background: tabs === "favorites" ? GOLD : NAVY + "18",
+                  color: NAVY,
+                }}
+              >
+                {favoritesBooks.length}
+              </span>
+            )}
+          </TabBtn>
+
+          <TabBtn
+            active={tabs === "activity"}
+            onClick={() => setTabs("activity")}
+            icon={Activity}
+          >
+            النشاطات
+            {activities.length > 0 && (
+              <span
+                className="mr-1 px-1.5 py-0.5 rounded-full text-xs font-bold"
+                style={{
+                  background: tabs === "activity" ? GOLD : NAVY + "18",
+                  color: NAVY,
+                }}
+              >
+                {activities.length}
+              </span>
+            )}
+          </TabBtn>
         </div>
 
-        {/* ============ Tab 1: Borrowed Books Content ============ */}
-        {/* Show loading spinner while fetching borrowed books */}
-        {borrowedBooksLoading && <LoadingSpinner />}
-
-        {/* Display borrowed books tab content when active and loaded */}
-        {!borrowedBooksLoading && tabs === "borrowing" && (
-          <div className="borrowing-tab bg-white rounded-2xl p-6 mt-6 shadow">
-            {/* Tab header */}
-            <h2 className="font-semibold">الكتب المُستعارة حالياً</h2>
-            <h3 className="text-gray-500">الكتب التي استعرتها حالياً</h3>
-
-            {/* Show error message if fetch failed */}
-            {borrowedBooksError ? (
-              <div className="text-red-500 text-center font-semibold">
-                {borrowedBooksError}
-              </div>
-            ) : borrowedBooks.length !== 0 ? (
-              // Map through borrowed books and display each one
-              borrowedBooks.map((borrowed) => (
-                <div
-                  key={borrowed.id}
-                  className="mt-5 border border-gray-300 p-5 rounded-2xl flex justify-between flex-col-reverse lg:flex-row items-center gap-y-3"
-                >
-                  {/* Left Section: Action Buttons and Book Info */}
-                  <div className="flex flex-col-reverse lg:flex-row gap-3 items-center ">
-                    {/* Action Buttons Container */}
-                    <div className="flex flex-col gap-2">
-                      {/* View Details Button */}
-                      <Link
-                        href={`/books/${borrowed.book.id}`}
-                        className="bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200 text-blue-950 font-medium hover:bg-accent hover:text-white transition-colors duration-200 cursor-pointer text-xs sm:text-base text-center"
-                      >
-                        عرض التفاصيل
-                      </Link>
-
-                      {/* Return Request Button - shows loading or button based on state */}
-                      {returnBookLoading == borrowed.id ? (
-                        <LoadingSpinner />
-                      ) : (
-                        <button
-                          onClick={async () => {
-                            setReturnBookLoading(borrowed.id);
-                            await returnBookRequestFn(borrowed.id);
-                            setReturnBookLoading(null);
-                          }}
-                          // Disable button if return request already submitted
-                          disabled={borrowed.return_request}
-                          className={`${
-                            borrowed.return_request
-                              ? "text-gray-300 cursor-not-allowed"
-                              : "cursor-pointer  hover:bg-accent hover:text-white"
-                          }  px-3 py-1.5 rounded-lg border bg-gray-100 border-gray-200 text-blue-950 font-medium  transition-colors duration-200  text-xs sm:text-base`}
-                        >
-                          طلب استرجاع الكتاب
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Book Title and Author */}
-                    <div className="text-center lg:text-start">
-                      <p className="font-semibold text-blue-950">
-                        {borrowed.book.title}
-                      </p>
-                      <p className="text-gray-500">
-                        بقلم {borrowed.book.author?.name}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Right Section: Status Badge and Book Image */}
-                  <div className="text-gray-500 flex flex-col-reverse lg:flex-row gap-3 items-center">
-                    {/* Status Badge - changes color based on book status */}
-                    <span
-                      className={`flex items-center gap-1 whitespace-nowrap rounded-sm px-3 py-1.5 text-xs text-white ${
-                        borrowed.late_day == 0 && !borrowed.return_request
-                          ? "bg-primary-light" // Blue for borrowed (not late)
-                          : borrowed.late_day > 0 && !borrowed.return_request
-                          ? "bg-red-500" // Red for overdue
-                          : "bg-primary" // Different shade for return requested
-                      }`}
-                    >
-                      {/* Status text and icon based on conditions */}
-                      {!borrowed.return_request ? (
-                        borrowed.late_day == 0 ? (
-                          <>
-                            مُستعار <BookOpen size={14} />
-                          </>
-                        ) : (
-                          <>
-                            متأخر <TriangleAlert size={14} />
-                          </>
-                        )
-                      ) : (
-                        <>
-                          تم طلب الاسترجاع <Redo2 size={14} />
-                        </>
-                      )}
-                    </span>
-
-                    {/* Book Cover Thumbnail */}
-                    <div className="aspect-[3/4] relative overflow-hidden rounded-lg w-16 h-20">
-                      <Image
-                        src={borrowed.book.image || "/placeholder.svg"}
-                        alt={borrowed.book.title}
-                        className="object-cover w-full h-full"
-                        fill
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))
-            ) : (
-              // Empty State - shown when no books are borrowed
-              <div className="flex flex-col gap-6 items-center my-6">
-                <BookOpen size={50} color="gray" />
-                <p className="text-gray-400">
-                  لم تتم استعارة أيِّ كتابٍ حتى الآن
-                </p>
-                {/* Call-to-action button to browse books */}
-                <Link
-                  href={"/books"}
-                  className="bg-primary-light text-white transition-colors duration-200 hover:bg-hover-dark rounded-lg py-1.5 px-4 "
-                >
-                  قم بالاستعارة الآن
-                </Link>
-              </div>
-            )}
-          </div>
+        {/* ── Tab 1: Borrowed Books ─────────────────────────────── */}
+        {tabs === "borrowing" && (
+          <BorrowingTab
+            borrowedBooks={borrowedBooks}
+            borrowedBooksLoading={borrowedBooksLoading}
+            borrowedBooksError={borrowedBooksError}
+            returnBookLoading={returnBookLoading}
+            setReturnBookLoading={setReturnBookLoading}
+            returnBookRequestFn={returnBookRequestFn}
+          />
         )}
 
-        {/* ============ Tab 2: Reading History Content ============ */}
-        {/* Show loading spinner while fetching books log */}
-        {booksLogLoading && <LoadingSpinner />}
-
-        {/* Display reading history tab content when active and loaded */}
-        {!booksLogLoading && tabs === "readingHistory" && (
-          <div className="reading-history-tab bg-white rounded-2xl p-6 mt-6 shadow">
-            {/* Tab header */}
-            <h2 className="font-semibold">سجل القراءة</h2>
-            <h3 className="text-gray-500">
-              الكتب التي استعرتها وأرجعتها سابقاً
-            </h3>
-
-            {/* Show error message if fetch failed */}
-            {booksLogError ? (
-              <div className="text-red-500 font-semibold text-center">
-                {booksLogError}
-              </div>
-            ) : booksLog.length !== 0 ? (
-              // Map through books log and display each returned book
-              booksLog.map((log) => (
-                <div
-                  key={log.id}
-                  className="mt-5 border border-gray-300 p-5 rounded-2xl flex justify-between flex-col-reverse lg:flex-row items-center gap-y-3"
-                >
-                  {/* Left Section: Action Buttons and Book Info */}
-                  <div className="flex flex-col-reverse lg:flex-row gap-3 items-center ">
-                    {/* Action Buttons Container */}
-                    <div className="flex flex-col gap-2">
-                      {/* View Details Button */}
-                      <Link
-                        href={`/books/${log.book.id}`}
-                        className="bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200 text-blue-950 font-medium hover:bg-accent hover:text-white transition-colors duration-200 cursor-pointer text-xs sm:text-base"
-                      >
-                        عرض التفاصيل
-                      </Link>
-
-                      {/* Re-borrow Button - allows borrowing previously read books again */}
-                      {borrowBookLoading == log.book.id ? (
-                        <LoadingSpinner />
-                      ) : (
-                        <button
-                          onClick={async () => {
-                            setBorrowBookLoading(log.book.id);
-                            await borrowBookFn(log.book.id);
-                            setBorrowBookLoading(null);
-                          }}
-                          className="bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200 text-blue-950 font-medium flex gap-1 justify-center items-center hover:bg-accent hover:text-white transition-colors duration-200 cursor-pointer text-xs sm:text-base"
-                        >
-                          تجديد
-                          <RotateCcw size={16} />
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Book Title and Author */}
-                    <div className="text-center lg:text-start">
-                      <p className="font-semibold text-blue-950">
-                        {log.book.title}
-                      </p>
-                      <p className="text-gray-500">
-                        بقلم {log.book.author?.name}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Right Section: Status Badge, Return Date, and Book Image */}
-                  <div className="text-gray-500 flex flex-col-reverse lg:flex-row gap-3 items-center ">
-                    {/* Returned Status Badge */}
-                    <span
-                      className={`flex items-center gap-1 rounded-sm px-3 py-1.5 text-xs text-white bg-primary-light
-                          `}
-                    >
-                      مرجع <BookOpen size={14} />
-                    </span>
-
-                    {/* Return Date Display */}
-                    <span className="return-time whitespace-nowrap flex text-xs items-center gap-0.5">
-                      تاريخ الإرجاع: {log.return_date || "لم يتم الإرجاع بعد"}
-                      <Calendar size={14} />
-                    </span>
-
-                    {/* Book Cover Thumbnail */}
-                    <div className="aspect-[3/4] relative overflow-hidden rounded-lg w-16 h-20">
-                      <Image
-                        src={log.book.image || "/placeholder.svg"}
-                        alt={log.book.title}
-                        className="object-cover w-full h-full"
-                        fill
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))
-            ) : (
-              // Empty State - shown when no reading history exists
-              <div className="flex flex-col gap-6 items-center my-6">
-                <BookOpen size={50} color="gray" />
-                <p className="text-gray-400">لا توجد كتب مقروءة حتى الآن</p>
-                {/* Call-to-action button to start reading */}
-                <Link
-                  href={"/books"}
-                  className="bg-primary-light text-white transition-colors duration-200 hover:bg-hover-dark rounded-lg py-1.5 px-3 "
-                >
-                  اقرأ الآن
-                </Link>
-              </div>
-            )}
-          </div>
+        {/* ── Tab 2: Reading History ────────────────────────────── */}
+        {tabs === "readingHistory" && (
+          <ReadingHistoryTab
+            booksLog={booksLog}
+            booksLogLoading={booksLogLoading}
+            booksLogError={booksLogError}
+            borrowedBookIds={borrowedBookIds}
+            borrowBookLoading={borrowBookLoading}
+            setBorrowBookLoading={setBorrowBookLoading}
+            borrowBookFn={borrowBookFn}
+          />
         )}
 
-        {/* ============ Tab 3: Favorites Content ============ */}
-        {/* Show loading spinner while fetching favorites */}
-        {favoritesBooksloading && <LoadingSpinner />}
-
-        {/* Show error message if favorites fetch failed */}
-        {favoritesBooksError && (
-          <p className="text-red-500 font-semibold">{favoritesBooksError}</p>
+        {/* ── Tab 3: Favorites ──────────────────────────────────── */}
+        {tabs === "favorites" && (
+          <FavoritesTab
+            favoritesBooks={favoritesBooks}
+            favoritesBooksloading={favoritesBooksloading}
+            favoritesBooksError={favoritesBooksError}
+            favLoading={favLoading}
+            setFavLoading={setFavLoading}
+            removeFromFavFn={removeFromFavFn}
+          />
         )}
 
-        {/* Display favorites tab content when active and loaded */}
-        {!favoritesBooksloading && tabs === "favorites" && (
-          <div className="reading-history-tab bg-white rounded-2xl p-6 mt-6 shadow">
-            {/* Tab header with "View All" link */}
-            <div className="flex justify-between gap-2 items-start flex-wrap ">
-              <div>
-                <h2 className="font-semibold">مفضلتي</h2>
-                <h3 className="text-gray-500">الكتب التي حفظتها لوقت لاحق</h3>
-              </div>
-              {/* Link to full favorites page */}
-              <Link
-                href={"/favorites"}
-                className=" rounded-md font-medium text-sm text-white border border-accent-dark  py-1.5 px-3  transition-colors duration-300 bg-accent hover:bg-accent-dark"
-              >
-                عرض الكل
-              </Link>
-            </div>
-
-            {/* Display favorites or empty state */}
-            {favoritesBooks.length !== 0 ? (
-              // Map through first 3 favorites only (limited preview)
-              favoritesBooks.slice(0, 3).map((b) => {
-                return (
-                  <div
-                    key={b.book.id}
-                    className="mt-5 border border-gray-300 p-5 rounded-2xl flex justify-between flex-col-reverse lg:flex-row items-center gap-y-3"
-                  >
-                    {/* Left Section: Action Button and Book Info */}
-                    <div className="flex flex-col-reverse lg:flex-row gap-3 items-center lg:items-start">
-                      {/* View Details Button */}
-                      <div className="flex flex-col gap-2">
-                        <Link
-                          href={`/books/${b.book.id}`}
-                          className="bg-primary-light px-3 py-1.5 rounded-lg border border-gray-200 text-white font-medium hover:bg-hover hover:text-white transition-colors duration-200 cursor-pointer text-xs sm:text-base"
-                        >
-                          عرض التفاصيل
-                        </Link>
-                      </div>
-
-                      {/* Book Title and Author */}
-                      <div className="text-center lg:text-start">
-                        <p className="font-semibold text-blue-950">
-                          {b.book.title}
-                        </p>
-                        <p className="text-gray-500">
-                          بقلم {b.book.author.name}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Right Section: Remove Button and Book Image */}
-                    <div className="text-gray-500 flex flex-col-reverse lg:flex-row gap-3 items-center ">
-                      {/* Remove from Favorites Button - shows loading or button */}
-                      {favLoading === b.book.id ? (
-                        <LoadingSpinner />
-                      ) : (
-                        <button
-                          onClick={async () => {
-                            setFavLoading(b.book.id);
-                            await removeFromFavFn(b.book.id);
-                            setFavLoading(null);
-                          }}
-                          className="group flex items-center gap-x-2 border border-gray-300 px-3 py-1.5 rounded-lg justify-center flex-1 cursor-pointer hover:bg-red-300 hover:text-white transition-colors duration-200"
-                        >
-                          <Heart
-                            size={18}
-                            className="text-red-500 group-hover:text-white transition-colors duration-200"
-                          />
-                          إزالة من المفضلة
-                        </button>
-                      )}
-
-                      {/* Book Cover Thumbnail */}
-                      <div className="aspect-[3/4] relative overflow-hidden rounded-lg w-16 h-20">
-                        <Image
-                          src={b.book.image || "/placeholder.svg"}
-                          alt={b.book.title}
-                          className="object-cover w-full h-full"
-                          fill
-                        />
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              // Empty State - shown when no favorites exist
-              <div className="flex flex-col gap-6 items-center my-6">
-                <Heart size={50} color="gray" />
-                <p className="text-gray-400">لا توجد مفضلة بعد</p>
-                {/* Call-to-action button to discover books */}
-                <Link
-                  href={"/books"}
-                  className="bg-blue-950 text-white transition-colors duration-200 hover:bg-blue-900 rounded-lg py-1.5 px-4 "
-                >
-                  اكتشف الكتب
-                </Link>
-              </div>
-            )}
-          </div>
+        {/* ── Tab 4: Activities ──────────────────────────────────── */}
+        {tabs === "activity" && (
+          <ActivityTab
+            activities={activities}
+            activityToggleLoading={activityToggleLoading}
+            unregisterActivityFn={unregisterActivityFn}
+          />
         )}
       </section>
-    </section>
+    </div>
   );
 };
 

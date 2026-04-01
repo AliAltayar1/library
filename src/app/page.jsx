@@ -1,26 +1,31 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
-  ArrowLeft,
-  ArrowRight,
   BookOpen,
   ChartColumnStacked,
   Clock,
   Star,
-  Users,
+  ArrowLeft,
 } from "lucide-react";
-import Button from "./components/button";
-// import { categories } from "../../lib/data";
-import Link from "next/link";
-import Image from "next/image";
-import { useEffect, useState } from "react";
-import axios from "axios";
-import { ArrowBack, Category } from "@mui/icons-material";
-import { getBooks } from "../../lib/books/getBooks";
-import LoadingSpinner from "./UI/LoadingSpinner";
-import { getCategories } from "../../lib/categories/categories";
-import Lottie from "lottie-react";
 
+import { getBooks } from "../../lib/books/getBooks";
+import { getCategories } from "../../lib/categories/categories";
+import LoadingSpinner from "./UI/LoadingSpinner";
+import { toast } from "sonner";
+
+// ── Home-page components ──────────────────────────────────────
+import HeroSection from "./home/HeroSection";
+import StatCard from "./home/StatCard";
+import CategoryPill from "./home/CategoryPill";
+import BookCard from "./home/BookCard";
+import BookSkeleton from "./home/BookSkeleton";
+import CTASection from "./home/CTASection";
+
+/* ─────────────────────────────────────────────────────────────
+   Home Page — orchestrates data fetching and renders sections
+   ───────────────────────────────────────────────────────────── */
 export default function Home() {
   const [books, setBooks] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -28,32 +33,26 @@ export default function Home() {
   const [error, setError] = useState(null);
   const [cateLoading, setCateLoading] = useState(false);
   const [cateError, setCateError] = useState(null);
-  const [animationData, setAnimationData] = useState(null);
 
   const fetchBooks = async () => {
     setLoading(true);
     try {
       const data = await getBooks();
       setBooks(data);
-    } catch (error) {
-      console.error("Error fetching books:", error);
-
-      console.error("Error fetching books:", error.message);
-
-      setError(error.message || "Failed to fetch books");
+    } catch (err) {
+      setError(err.message || "فشل تحميل الكتب");
     } finally {
       setLoading(false);
     }
   };
 
-  const getCategoriesFn = async () => {
+  const fetchCategories = async () => {
     setCateLoading(true);
     try {
       const data = await getCategories();
       setCategories(data);
-    } catch (error) {
-      console.error("Error fetching books:", error.message);
-      setCateError(error.message);
+    } catch (err) {
+      setCateError(err.message);
     } finally {
       setCateLoading(false);
     }
@@ -61,215 +60,146 @@ export default function Home() {
 
   useEffect(() => {
     fetchBooks();
-    getCategoriesFn();
-
-    fetch("/Book.json")
-      .then((res) => res.json())
-      .then((data) => setAnimationData(data));
+    fetchCategories();
   }, []);
 
+  /* Stats config — values derived from fetched data */
+  const stats = [
+    {
+      icon: BookOpen,
+      value: `${books.length || 0}+`,
+      label: "الكتب المتاحة",
+      color: "#1a2f5e",
+      delay: "delay-100",
+    },
+    {
+      icon: ChartColumnStacked,
+      value: `${categories.length || 0}+`,
+      label: "الفئات المتاحة",
+      color: "#7c3aed",
+      delay: "delay-200",
+    },
+    {
+      icon: Clock,
+      value: "50,000+",
+      label: "الساعات المحفوظة",
+      color: "#0891b2",
+      delay: "delay-300",
+    },
+    {
+      icon: Star,
+      value: "4.8/5",
+      label: "متوسط التقييم",
+      color: "#D4930A",
+      delay: "delay-400",
+    },
+  ];
+
   return (
-    <div className="home-page">
-      <div className="hero-section">
-        <section
-          className="hero-section bg-[linear-gradient(90deg,rgba(29,93,236,1)_0%,rgba(4,61,156,1)_100%)]
-        w-full text-white text-center flex 
-        justify-center flex-wrap py-28 px-5"
-        >
-          {animationData && (
-            <div className="w-44 h-44 md:w-64 md:h-64">
-              <Lottie animationData={animationData} loop={true} />
+    <div dir="rtl" className="overflow-x-hidden">
+      {/* ══════════ 1. HERO ══════════════════════════════════════ */}
+      <HeroSection />
+
+      {/* ══════════ 2. STATS ═════════════════════════════════════ */}
+      <section className="relative py-20 bg-background">
+        <div className="container">
+          <div className="flex flex-col sm:flex-row gap-5 justify-center flex-wrap">
+            {stats.map((s, i) => (
+              <StatCard key={i} {...s} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════ 3. CATEGORIES ════════════════════════════════ */}
+      <section
+        className="py-20"
+        style={{
+          background: "linear-gradient(180deg, #F3EFE8 0%, #FAF8F5 100%)",
+        }}
+      >
+        <div className="container">
+          {/* Header */}
+          <div className="text-center mb-12">
+            <h2 className="animate-fadeSlideUp section-title text-3xl sm:text-4xl font-bold mb-4 text-primary">
+              استكشف الفئات
+            </h2>
+            <p className="animate-fadeSlideUp delay-100 text-base mt-6 text-text-muted">
+              اعثر على قراءتك الرائعة التالية من مجموعتنا المتنوعة
+            </p>
+          </div>
+
+          {/* States */}
+          {cateLoading && (
+            <div className="flex justify-center">
+              <LoadingSpinner />
             </div>
           )}
-          <div
-            className="text-center flex 
-      flex-col justify-center gap-y-5 "
-          >
-            <h1 className="text-5xl font-semibold leading-tight">
-              مرحباً بك في مكتبتك الرقمية
-            </h1>
-            <p className="font-medium text-xl">
-              اكتشف آلاف الكتب، وأدر رحلتك في القراءة، واستكشف عوالم جديدة من
-              المعرفة في متناول يديك.
-            </p>
-            <div className="flex gap-x-3 justify-center ">
-              <Button
-                text="تصفح الكتب"
-                cn="bg-accent hover:bg-accent-dark font-semibold hover:text-whitse"
-              />
-              <Button
-                text="انضم اليوم"
-                cn="border border-white hover:text-blue-950 hover:bg-white font-semibold "
-              />
-            </div>
-          </div>
-        </section>
-
-        <div className="md:-translate-y-12 ">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 320">
-            <defs>
-              <linearGradient id="myGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="rgba(29,93,236,1)" />
-                <stop offset="100%" stopColor="rgba(4,61,156,1)" />
-              </linearGradient>
-            </defs>
-            <path
-              fill="url(#myGradient)"
-              fillOpacity="1"
-              d="M0,224L60,202.7C120,181,240,139,360,133.3C480,128,600,160,720,192C840,224,960,256,1080,250.7C1200,245,1320,203,1380,181.3L1440,160L1440,0L1380,0C1320,0,1200,0,1080,0C960,0,840,0,720,0C600,0,480,0,360,0C240,0,120,0,60,0L0,0Z"
-            ></path>
-          </svg>
-        </div>
-      </div>
-
-      <div className="container min-w-full py-12">
-        <section className="statistics flex flex-col sm:flex-row gap-x-5 gap-y-8 justify-between  text-black">
-          {[
-            {
-              icon: BookOpen,
-              label: "الكتب المتاحة",
-              value: `${books.length || 0}+`,
-            },
-            {
-              icon: ChartColumnStacked,
-              label: "الفئات المتاحة",
-              value: `${categories.length || 0}+`,
-            },
-            { icon: Clock, label: "الساعات المحفوظة", value: "50,000+" },
-            { icon: Star, label: "متوسط التقييم", value: "4.8/5" },
-          ].map((stat, index) => {
-            const Icon = stat.icon;
-            return (
-              <div key={index} className="text-center ">
-                <Icon className="h-12 w-12 text-accent mx-auto mb-4" />
-                <div className="text-3xl text-gray-700 font-bold mb-2">
-                  {stat.value}
-                </div>
-                <div className="text-gray-500">{stat.label}</div>
-              </div>
-            );
-          })}
-        </section>
-
-        <section className="categories mt-30 text-center">
-          <h1 className="text-3xl font-bold mb-5">استكشف الفئات</h1>
-          <p className="text-gray-500 text-xl font-medium">
-            اعثر على قراءتك الرائعة التالية من مجموعتنا المتنوعة من الأنواع
-            والمواضيع.
-          </p>
-
-          <div className="flex gap-5 flex-wrap mt-10 justify-center">
-            {cateLoading && <LoadingSpinner />}
-            {cateError && <div className="text-red-500">{cateError}</div>}
-            {categories &&
-              categories.map((category) => (
-                <Link
-                  key={category.id}
-                  href={{
-                    pathname: "/books",
-                    query: { category: category.name },
-                  }}
-                  className="w-52 hover:bg-blue-50 h-28 bg-white rounded-xl shadow-lg flex justify-center items-center hover:shadow-2xl transition-shadow duration-300"
-                >
-                  <span className="text-xl font-medium text-gray-700">
-                    {category.name}
-                  </span>
-                </Link>
+          {cateError && (
+            <p className="text-center text-rose-500">{cateError}</p>
+          )}
+          {categories.length > 0 && (
+            <div className="flex gap-4 flex-wrap justify-center">
+              {categories.map((cat, i) => (
+                <CategoryPill key={cat.id} category={cat} index={i} />
               ))}
-          </div>
-        </section>
+            </div>
+          )}
 
-        <section className="best-books my-30 text-center ">
-          <h1 className="text-3xl font-bold mb-5">الكتب المميزة</h1>
-          <p className="text-gray-500 text-xl font-medium">
-            اعثر على قراءتك الرائعة التالية من مجموعتنا المتنوعة من الأنواع
-            والمواضيع.
-          </p>
-
-          <div
-            className={`${
-              books.length > 0 ? "grid" : ""
-            } grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 mt-10`}
-          >
-            {loading && <LoadingSpinner />}
-
-            {error && <div className="text-red-500">{error}</div>}
-
-            {books.length > 0
-              ? books.map((book) => (
-                  <div
-                    key={book.id}
-                    className="bg-white rounded-xl transition-shadow duration-200 shadow-xl flex flex-col items-start hover:shadow-2xl p-4 w-full"
-                  >
-                    <div className="aspect-[3/4]  relative mb-4 overflow-hidden rounded-lg w-full h-[300px]">
-                      <Image
-                        src={book.image || "/placeholder.svg"}
-                        alt={book.title}
-                        className="object-contain w-full h-full"
-                        fill
-                      />
-                    </div>
-
-                    <span className="font-medium mb-2">{book.title}</span>
-                    <span className="text-gray-500 text-start">
-                      {book.author?.name || "لا يوجد مؤلف"}
-                    </span>
-
-                    <div className="flex justify-between w-full items-center my-5">
-                      <span className="bg-primary text-gray-50 px-2 py-1 rounded">
-                        {book.category?.name || "لا يوجد فئة"}
-                      </span>
-                      <span
-                        className={`${
-                          book.is_avaiable
-                            ? "bg-green-300 text-green-700"
-                            : "bg-red-300 text-red-700"
-                        } px-2 py-1 rounded`}
-                      >
-                        {book.is_avaiable ? "متاح" : "مُستعار"}
-                      </span>
-                    </div>
-
-                    <Link href={`/books/${book.id}`} className="w-full">
-                      <Button
-                        text="عرض التفاصيل"
-                        cn="bg-primary-light w-full hover:bg-hover"
-                      />
-                    </Link>
-                  </div>
-                ))
-              : ""}
-          </div>
-
-          <Link href={"/books"}>
-            <button
-              className={
-                "flex justify-center gap-1.5 m-auto rounded-xl px-4 py-2 cursor-pointer transform transition-all duration-300  whitespace-nowrap  border border-gray-400 mt-10  hover:bg-primary bg-primary-light text-white"
-              }
+          {/* Footer link */}
+          <div className="text-center mt-10">
+            <Link
+              href="/books"
+              className="inline-flex items-center gap-2 text-sm font-semibold transition-colors duration-200 text-accent"
             >
-              <ArrowRight />
-              عرض جميع الكتب
-            </button>
-          </Link>
-        </section>
-      </div>
-
-      <section className="bg-[linear-gradient(270deg,rgba(29,93,236,1)_0%,rgba(4,61,156,1)_100%)] text-white text-center py-24 px-4">
-        <h1 className="text-4xl font-bold mb-8 leading-tight">
-          هل أنت مستعد لبدء رحلتك في القراءة؟
-        </h1>
-        <p className="text-xl font-medium mb-8">
-          انضم إلى آلاف القراء الذين اكتشفوا كتابهم المفضل التالي من خلال
-          منصتنا.
-        </p>
-
-        <Link
-          href="/books"
-          className="rounded-lg cursor-pointer transform transition-all duration-300  whitespace-nowrap text-white bg-accent text-xl font-medium hover:bg-accent-dark px-8"
-        >
-          ابدأ اليوم
-        </Link>
+              <ArrowLeft className="w-4 h-4" />
+              عرض جميع الفئات
+            </Link>
+          </div>
+        </div>
       </section>
+
+      {/* ══════════ 4. FEATURED BOOKS ════════════════════════════ */}
+      <section className="py-20 bg-background">
+        <div className="container">
+          {/* Header */}
+          <div className="text-center mb-12">
+            <h2 className="animate-fadeSlideUp section-title text-3xl sm:text-4xl font-bold mb-4 text-primary">
+              الكتب المميزة
+            </h2>
+            <p className="animate-fadeSlideUp delay-100 text-base mt-6 text-text-muted">
+              اختيارات مميزة من أفضل الكتب في مكتبتنا
+            </p>
+          </div>
+
+          {/* Error */}
+          {error && <p className="text-center text-rose-500 mb-6">{error}</p>}
+
+          {/* Grid — skeleton while loading, cards when ready */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-7">
+            {loading
+              ? Array.from({ length: 6 }).map((_, i) => (
+                  <BookSkeleton key={i} />
+                ))
+              : books.map((book) => <BookCard key={book.id} book={book} />)}
+          </div>
+
+          {/* View-all button */}
+          {!loading && books.length > 0 && (
+            <div className="text-center mt-12">
+              <Link href="/books">
+                <button className="inline-flex items-center gap-2 px-8 py-3 rounded-xl font-bold text-base cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-xl bg-gradient-to-br from-primary to-primary-light text-white hover:from-accent hover:to-accent-light hover:text-primary">
+                  <ArrowLeft className="w-4 h-4" />
+                  عرض جميع الكتب
+                </button>
+              </Link>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ══════════ 5. CTA ═══════════════════════════════════════ */}
+      <CTASection />
     </div>
   );
 }
