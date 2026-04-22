@@ -14,7 +14,7 @@
  */
 
 import React, { useEffect, useState } from "react";
-import { Users } from "lucide-react";
+import { Users, Search, X } from "lucide-react";
 import { getUsers } from "../../../lib/admin/getUsers";
 import LoadingSpinner from "../UI/LoadingSpinner";
 import { NAVY, NAVY2 } from "@/lib/constants/colors";
@@ -25,11 +25,15 @@ const AdminManageUser = () => {
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState(null);
 
+  // ─── Search / filter state
+  const [searchName, setSearchName] = useState("");
+
   // ============ API Functions ============
-  const getUsersFn = async () => {
+  const getUsersFn = async (filters = {}) => {
     setUsersLoading(true);
+    setUsersError(null);
     try {
-      const data = await getUsers();
+      const data = await getUsers(filters);
       setUsers(data);
     } catch (error) {
       setUsersError(error.message);
@@ -39,6 +43,18 @@ const AdminManageUser = () => {
   };
 
   // ============ Side Effects ============
+  const handleSearch = (e) => {
+    e.preventDefault();
+    const filters = {};
+    if (searchName.trim()) filters.name = searchName.trim();
+    getUsersFn(filters);
+  };
+
+  const handleClearFilters = () => {
+    setSearchName("");
+    getUsersFn();
+  };
+
   useEffect(() => {
     getUsersFn();
   }, []);
@@ -66,9 +82,49 @@ const AdminManageUser = () => {
         )}
       </div>
 
+      {/* ============ Search / Filter Bar ============ */}
+      <form onSubmit={handleSearch} className="mt-6 flex flex-wrap items-end gap-3">
+        <div className="flex-1 min-w-[200px]">
+          <label className="block text-xs font-semibold text-gray-500 mb-1">اسم المستخدم</label>
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="بحث بالاسم..."
+              value={searchName}
+              onChange={(e) => setSearchName(e.target.value)}
+              className="w-full py-2.5 pr-10 pl-3 border border-gray-200 rounded-xl outline-none
+                         focus:border-blue-400 focus:ring-2 focus:ring-blue-100
+                         transition-all duration-200 text-gray-800 text-sm"
+            />
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          </div>
+        </div>
+        <button
+          type="submit"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold
+                     text-sm text-white cursor-pointer transition-all duration-200
+                     hover:opacity-90 hover:-translate-y-0.5 active:scale-95
+                     bg-gradient-to-br from-primary to-primary-light shadow-[0_4px_16px_rgba(15,27,60,0.20)]"
+        >
+          <Search className="w-4 h-4" />
+          بحث
+        </button>
+        {searchName && (
+          <button
+            type="button"
+            onClick={handleClearFilters}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-semibold text-sm
+                       text-gray-600 border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+            مسح
+          </button>
+        )}
+      </form>
+
       {/* ============ Users Table Card ============ */}
       <div
-        className="mt-8 rounded-2xl p-6 relative bg-white border-[1.5px] border-[#e2e8f0] shadow-[0_2px_24px_rgba(15,27,60,0.05)]"
+        className="mt-6 rounded-2xl p-6 relative bg-white border-[1.5px] border-[#e2e8f0] shadow-[0_2px_24px_rgba(15,27,60,0.05)]"
       >
         <h2 className="font-semibold text-gray-800">قائمة المستخدمين</h2>
         <p className="text-gray-400 text-sm font-light">

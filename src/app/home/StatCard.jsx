@@ -13,12 +13,8 @@ export default function StatCard({ icon: Icon, value, label, color, delay }) {
       >
         <Icon className="w-7 h-7" style={{ color }} />
       </div>
-      <p className="text-3xl font-bold text-primary">
-        {value}
-      </p>
-      <p className="text-sm font-medium text-text-muted">
-        {label}
-      </p>
+      <p className="text-3xl font-bold text-primary">{value}</p>
+      <p className="text-sm font-medium text-text-muted">{label}</p>
     </div>
   );
 }

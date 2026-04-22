@@ -20,8 +20,9 @@ import HeroSection from "./home/HeroSection";
 import StatCard from "./home/StatCard";
 import CategoryPill from "./home/CategoryPill";
 import BookCard from "./home/BookCard";
-import BookSkeleton from "./home/BookSkeleton";
+import BookCardSkeleton from "./components/BookCardSkeleton";
 import CTASection from "./home/CTASection";
+import QuotesSlider from "./home/QuotesSlider";
 
 /* ─────────────────────────────────────────────────────────────
    Home Page — orchestrates data fetching and renders sections
@@ -38,7 +39,8 @@ export default function Home() {
     setLoading(true);
     try {
       const data = await getBooks();
-      setBooks(data);
+      setBooks(data.results);
+      console.log(data);
     } catch (err) {
       setError(err.message || "فشل تحميل الكتب");
     } finally {
@@ -101,12 +103,12 @@ export default function Home() {
       <HeroSection />
 
       {/* ══════════ 2. STATS ═════════════════════════════════════ */}
-      <section className="relative py-20 bg-background">
-        <div className="container">
+      <section className="relative py-10 bg-background">
+        <div className="container py-10">
           <div className="flex flex-col sm:flex-row gap-5 justify-center flex-wrap">
-            {stats.map((s, i) => (
-              <StatCard key={i} {...s} />
-            ))}
+            {stats.map((s, i) => {
+              return <StatCard key={i} {...s} s />;
+            })}
           </div>
         </div>
       </section>
@@ -124,6 +126,7 @@ export default function Home() {
             <h2 className="animate-fadeSlideUp section-title text-3xl sm:text-4xl font-bold mb-4 text-primary">
               استكشف الفئات
             </h2>
+
             <p className="animate-fadeSlideUp delay-100 text-base mt-6 text-text-muted">
               اعثر على قراءتك الرائعة التالية من مجموعتنا المتنوعة
             </p>
@@ -135,9 +138,11 @@ export default function Home() {
               <LoadingSpinner />
             </div>
           )}
+
           {cateError && (
             <p className="text-center text-rose-500">{cateError}</p>
           )}
+
           {categories.length > 0 && (
             <div className="flex gap-4 flex-wrap justify-center">
               {categories.map((cat, i) => (
@@ -146,7 +151,6 @@ export default function Home() {
             </div>
           )}
 
-          {/* Footer link */}
           <div className="text-center mt-10">
             <Link
               href="/books"
@@ -177,12 +181,23 @@ export default function Home() {
 
           {/* Grid — skeleton while loading, cards when ready */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-7">
-            {loading
-              ? Array.from({ length: 6 }).map((_, i) => (
-                  <BookSkeleton key={i} />
-                ))
-              : books.map((book) => <BookCard key={book.id} book={book} />)}
+            {loading &&
+              Array.from({ length: 6 }).map((_, i) => (
+                <BookCardSkeleton key={i} />
+              ))}
           </div>
+
+          {
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-7">
+              {books.length == 0 && !loading ? (
+                <div className="text-center font-bold text-accent">
+                  لا يوجد كتب لعرضها
+                </div>
+              ) : (
+                books.map((book) => <BookCard key={book.id} book={book} />)
+              )}
+            </div>
+          }
 
           {/* View-all button */}
           {!loading && books.length > 0 && (
@@ -198,7 +213,10 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ══════════ 5. CTA ═══════════════════════════════════════ */}
+      {/* ══════════ 5. QUOTES SLIDER ══════════════════════════════ */}
+      <QuotesSlider />
+
+      {/* ══════════ 6. CTA ═══════════════════════════════════════ */}
       <CTASection />
     </div>
   );

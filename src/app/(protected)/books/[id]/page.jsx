@@ -21,6 +21,7 @@ import {
   Heart,
   User,
   Layers,
+  MapPin,
   ScrollText,
   Send,
   ChevronDown,
@@ -36,7 +37,6 @@ import { profileBorrowed } from "../../../../../lib/user/profileBorrowed";
 import { toast } from "sonner";
 import LoadingSpinner from "@/app/UI/LoadingSpinner";
 import { addToFav } from "../../../../../lib/favorite/addToFav";
-import { getFavoritesBooks } from "../../../../../lib/favorite/getFavBook";
 import { removeFromFav } from "../../../../../lib/favorite/removeFromFav";
 import { motion } from "framer-motion";
 import { addSummary } from "../../../../../lib/books/addSummary";
@@ -54,7 +54,6 @@ const Book = () => {
   const [loading, setLoading] = useState(false);
   const [borrowLoading, setBorrorLoading] = useState(false);
   const [favLoading, setFavLoading] = useState(false);
-  const [favoritesBooks, setFavoritesBooks] = useState([]);
   const [borrowedBooks, setBorrowedBooks] = useState([]);
 
   // ─── Summary state ────────────────────────────────────────────
@@ -63,10 +62,6 @@ const Book = () => {
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [submittingSummary, setSubmittingSummary] = useState(false);
   const [showSummaries, setShowSummaries] = useState(true);
-
-  const favoriteIds = new Set(
-    favoritesBooks && favoritesBooks.map((fav) => fav.book.id),
-  );
 
   // Derive if the current book is already borrowed by the user
   const isBorrowed = borrowedBooks.some((b) => b.book?.id === book.id);
@@ -84,33 +79,23 @@ const Book = () => {
     }
   };
 
-  const getFavoritesBooksFn = async () => {
-    try {
-      const data = await getFavoritesBooks();
-      setFavoritesBooks(data);
-    } catch (error) {
-      toast.error(error.message);
-    }
-  };
-
-  const removeFromFavFn = async (bookId) => {
-    try {
-      await removeFromFav(bookId);
-      await getFavoritesBooksFn();
-      toast.success("تمت الإزالة من المفضلة");
-    } catch (error) {
-      toast.error("حدث خطأ أثناء الإزالة: " + error.message);
-    }
-  };
-
-  const addToFavFn = async (bookId) => {
+  const handleToggleFav = async () => {
+    const isFav = book.is_like;
     setFavLoading(true);
+    // Optimistic update
+    setBook((prev) => ({ ...prev, is_like: !isFav }));
     try {
-      await addToFav(bookId);
-      await getFavoritesBooksFn();
-      toast.success("تمت الإضافة إلى المفضلة");
+      if (isFav) {
+        await removeFromFav(book.id);
+        toast.success("تمت الإزالة من المفضلة");
+      } else {
+        await addToFav(book.id);
+        toast.success("تمت الإضافة إلى المفضلة");
+      }
     } catch (error) {
-      toast.error("حدث خطأ أثناء الإضافة: " + error.message);
+      // Rollback on failure
+      setBook((prev) => ({ ...prev, is_like: isFav }));
+      toast.error("حدث خطأ: " + error.message);
     } finally {
       setFavLoading(false);
     }
@@ -168,7 +153,6 @@ const Book = () => {
 
   useEffect(() => {
     fetchBook(id);
-    getFavoritesBooksFn();
     fetchSummaries();
     // Fetch current borrowed books to check if this one is already borrowed
     profileBorrowed()
@@ -176,7 +160,7 @@ const Book = () => {
       .catch(() => {});
   }, []);
 
-  const isFav = favoriteIds.has(book.id);
+  const isFav = book.is_like;
 
   // ─── Metadata items ───────────────────────────────────────────
   const metaItems = [
@@ -190,6 +174,11 @@ const Book = () => {
       icon: BookCopy,
       label: "النسخ المتاحة",
       value: book.available_copies || 0,
+    },
+    {
+      icon: MapPin,
+      label: "رف الكتاب",
+      value: book.possition || "لا يوجد",
     },
   ];
 
@@ -397,13 +386,7 @@ const Book = () => {
                   </div>
                 ) : (
                   <button
-                    onClick={async () => {
-                      setFavLoading(book.id);
-                      isFav
-                        ? await removeFromFavFn(book.id)
-                        : await addToFavFn(book.id);
-                      setFavLoading(null);
-                    }}
+                    onClick={handleToggleFav}
                     className="flex items-center justify-center gap-2 w-full py-3 rounded-xl font-bold text-sm transition-all duration-200 cursor-pointer"
                     style={{
                       background: isFav ? "rgba(239,68,68,0.08)" : `${NAVY}08`,
@@ -456,9 +439,7 @@ const Book = () => {
                   boxShadow: "0 2px 16px rgba(15,27,60,0.05)",
                 }}
               >
-                <h2
-                  className="text-lg font-bold mb-3 flex items-center gap-2 text-primary"
-                >
+                <h2 className="text-lg font-bold mb-3 flex items-center gap-2 text-primary">
                   <span
                     className="w-1 h-5 rounded-full inline-block"
                     style={{
@@ -481,9 +462,7 @@ const Book = () => {
                   boxShadow: "0 2px 16px rgba(15,27,60,0.05)",
                 }}
               >
-                <h2
-                  className="text-lg font-bold mb-5 flex items-center gap-2 text-primary"
-                >
+                <h2 className="text-lg font-bold mb-5 flex items-center gap-2 text-primary">
                   <span
                     className="w-1 h-5 rounded-full inline-block"
                     style={{
@@ -500,9 +479,7 @@ const Book = () => {
                       className="flex items-center gap-3 p-3 rounded-xl transition-colors duration-150 hover:bg-gray-50"
                       style={{ border: "1px solid #f1f5f9" }}
                     >
-                      <div
-                        className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-primary/[8%]"
-                      >
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-primary/[8%]">
                         <Icon className="w-4 h-4 text-primary-light" />
                       </div>
                       <div className="flex flex-col min-w-0">
@@ -532,9 +509,7 @@ const Book = () => {
               >
                 {/* Header */}
                 <div className="flex items-center justify-between mb-5">
-                  <h2
-                    className="text-lg font-bold flex items-center gap-2 text-primary"
-                  >
+                  <h2 className="text-lg font-bold flex items-center gap-2 text-primary">
                     <span
                       className="w-1 h-5 rounded-full inline-block"
                       style={{
@@ -544,9 +519,7 @@ const Book = () => {
                     <ScrollText className="w-5 h-5 text-accent" />
                     ملخصات القراء
                     {summaries.length > 0 && (
-                      <span
-                        className="text-xs font-semibold px-2 py-0.5 rounded-full bg-primary/[10%] text-primary-light"
-                      >
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-primary/[10%] text-primary-light">
                         {summaries.length}
                       </span>
                     )}
@@ -637,15 +610,10 @@ const Book = () => {
                           >
                             {/* User info row */}
                             <div className="flex items-center gap-2 mb-2">
-                              <div
-                                className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 bg-primary/[8%] text-primary"
-                              >
-                                {console.log(s)}
+                              <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 bg-primary/[8%] text-primary">
                                 {s.username[0].toUpperCase()}
                               </div>
-                              <span
-                                className="text-xs font-semibold text-primary-light"
-                              >
+                              <span className="text-xs font-semibold text-primary-light">
                                 {`${s.first_name} ${s.last_name}`}
                               </span>
                               {s.created_at && (

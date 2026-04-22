@@ -13,9 +13,11 @@ import { NAVY, NAVY2 } from "@/lib/constants/colors";
 
 export default function ActivitiesPage() {
   const { user } = useAuth();
+  const TEXT_LIMIT = 120;
 
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [togglingActId, setTogglingActId] = useState(null);
   const [expandedIds, setExpandedIds] = useState(new Set());
 
@@ -28,37 +30,18 @@ export default function ActivitiesPage() {
 
   const fetchData = async () => {
     setLoading(true);
+    setError(null);
     try {
-      // Fetch activities and profile in parallel
-      const [activitiesData, profileData] = await Promise.allSettled([
-        getActivitiesForUser(),
-        user ? profile() : Promise.resolve(null),
-      ]);
-
-      const list =
-        activitiesData.status === "fulfilled"
-          ? Array.isArray(activitiesData.value)
-            ? activitiesData.value
-            : (activitiesData.value?.results ?? [])
-          : [];
-
-      // Build a Set of registered activity IDs from profile
-      let registeredIds = new Set();
-      if (profileData.status === "fulfilled" && profileData.value) {
-        const acts = profileData.value.activities ?? [];
-        registeredIds = new Set(acts.map((a) => a.activity_id ?? a.id ?? a));
-      }
-
-      // Stamp each activity with is_registered
-      setActivities(
-        list.map((a) => ({ ...a, is_registered: registeredIds.has(a.id) })),
-      );
-    } catch (_) {
-      // silently fail
+      const activitiesData = await getActivitiesForUser();
+      setActivities(activitiesData);
+    } catch (err) {
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   };
+
+  console.log(activities);
 
   const handleRegister = async (activityId) => {
     if (!user) {
@@ -179,6 +162,8 @@ export default function ActivitiesPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {activities.map((activity) => {
               const isToggling = togglingActId === activity.id;
+              const isLongText = activity.description.length > TEXT_LIMIT;
+
               const count =
                 activity.participants_count ?? activity.participants ?? null;
               const isRegistered = activity.is_registered;
@@ -240,19 +225,23 @@ export default function ActivitiesPage() {
                       <div className="mb-4">
                         <p
                           className={`text-sm text-gray-500 transition-all duration-300 ${
-                            expandedIds.has(activity.id) ? "" : "line-clamp-2"
+                            !expandedIds.has(activity.id) && isLongText
+                              ? "line-clamp-2"
+                              : ""
                           }`}
                         >
                           {activity.description}
                         </p>
-                        <button
-                          onClick={() => toggleExpand(activity.id)}
-                          className="mt-1 text-xs font-semibold cursor-pointer transition-colors duration-200 text-primary-light"
-                        >
-                          {expandedIds.has(activity.id)
-                            ? "▲ أقل"
-                            : "▼ اقرأ المزيد"}
-                        </button>
+                        {isLongText && (
+                          <button
+                            onClick={() => toggleExpand(activity.id)}
+                            className="mt-1 text-xs font-semibold cursor-pointer transition-colors duration-200 text-primary-light"
+                          >
+                            {expandedIds.has(activity.id)
+                              ? "▲ أقل"
+                              : "▼ اقرأ المزيد"}
+                          </button>
+                        )}
                       </div>
                     )}
 

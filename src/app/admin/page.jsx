@@ -28,6 +28,7 @@ import {
   Layers,
   User,
   CalendarDays,
+  Quote,
 } from "lucide-react";
 
 import AdminStats from "../components/adminStats";
@@ -37,6 +38,7 @@ import AdminManageBorrowing from "../components/adminManageBorrowing";
 import AdminManageCategories from "../components/adminManageCategories";
 import AdminManageAuthors from "../components/adminManageAuthors";
 import AdminManageActivities from "../components/adminManageActivities";
+import AdminManageQuotes from "../components/adminManageQuotes";
 import { NAVY, NAVY2, GOLD, GOLD2, PARCH } from "@/lib/constants/colors";
 
 /* ─── Tab definitions ────────────────────────────────────────── */
@@ -48,6 +50,7 @@ const TABS = [
   { id: "manageCategories", label: "إدارة الفئات", icon: Layers },
   { id: "manageAuthors", label: "إدارة المؤلفين", icon: User },
   { id: "manageActivities", label: "إدارة الأنشطة", icon: CalendarDays },
+  { id: "manageQuotes", label: "إدارة الاقتباسات", icon: Quote },
 ];
 
 /* ═══════════════════════════════════════════════════════════════
@@ -55,7 +58,7 @@ const TABS = [
    ═══════════════════════════════════════════════════════════════ */
 const Admin = () => {
   const [tabs, setTabs] = useState("statistics");
-
+  //
   return (
     <div dir="rtl" className="overflow-x-hidden bg-background min-h-screen">
       {/* ══════════════════════════════════════════════════════════
@@ -168,6 +171,7 @@ const Admin = () => {
           {tabs === "manageCategories" && <AdminManageCategories />}
           {tabs === "manageAuthors" && <AdminManageAuthors />}
           {tabs === "manageActivities" && <AdminManageActivities />}
+          {tabs === "manageQuotes" && <AdminManageQuotes />}
         </div>
       </section>
     </div>

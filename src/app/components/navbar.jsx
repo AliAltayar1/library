@@ -20,6 +20,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  Quote,
   Settings,
   User,
   X,
@@ -37,6 +38,7 @@ const navLinks = [
   { href: "/", label: "الرئيسية", icon: BookOpen },
   { href: "/books", label: "الكتب", icon: BookOpen },
   { href: "/activities", label: "الأنشطة", icon: CalendarDays },
+  { href: "/quotes", label: "الاقتباسات", icon: Quote },
   { href: "/favorites", label: "المفضلة", icon: Heart },
   { href: "/profile", label: "الملف الشخصي", icon: User },
   { href: "/chat", label: "النموذج الذكي", icon: BotMessageSquare },
@@ -139,7 +141,7 @@ const Navbar = () => {
           </Link>
 
           {/* ── Desktop Links ──────────────────────────────────────── */}
-          <div className="hidden lg:flex items-center gap-1">
+          <div className="hidden  xl:flex items-center gap-1">
             {allLinks.map(({ href, label, icon: Icon }) => (
               <Link
                 key={href}
@@ -164,7 +166,7 @@ const Navbar = () => {
           </div>
 
           {/* ── Desktop Auth ───────────────────────────────────────── */}
-          <div className="hidden lg:flex items-center gap-2">
+          <div className="hidden xl:flex items-center gap-2">
             {!user?.isValid ? (
               <>
                 <Link
@@ -203,7 +205,7 @@ const Navbar = () => {
           {/* ── Mobile Toggle ──────────────────────────────────────── */}
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="lg:hidden flex items-center justify-center w-9 h-9 rounded-xl text-white/80 hover:text-white hover:bg-white/10 transition-all duration-200 cursor-pointer"
+            className="xl:hidden flex items-center justify-center w-9 h-9 rounded-xl text-white/80 hover:text-white hover:bg-white/10 transition-all duration-200 cursor-pointer"
             aria-label="القائمة"
           >
             <AnimatePresence mode="wait" initial={false}>
@@ -229,7 +231,7 @@ const Navbar = () => {
             initial="hidden"
             animate="visible"
             exit="exit"
-            className="lg:hidden overflow-hidden border-t border-white/10"
+            className="xl:hidden overflow-hidden border-t border-white/10"
           >
             <div className="container pb-5 pt-3 flex flex-col gap-1">
               {allLinks.map(({ href, label, icon: Icon }, i) => (
