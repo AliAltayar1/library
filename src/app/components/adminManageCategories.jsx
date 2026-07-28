@@ -14,7 +14,7 @@
  */
 
 import React, { useEffect, useState } from "react";
-import { Plus, X, Pencil, Trash2 } from "lucide-react";
+import { Plus, X, Pencil, Trash2, Search } from "lucide-react";
 import { getCategory } from "../../../lib/admin/getCategory";
 import { addCategory } from "../../../lib/admin/addCategory";
 import { updateCategory } from "../../../lib/admin/updateCategory";
@@ -40,6 +40,9 @@ const AdminManageCategories = () => {
   const [deleteId, setDeleteId] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
+  // ─── Search / filter state
+  const [searchCategory, setSearchCategory] = useState("");
+
   // ============ Helpers ============
 
   function resetForm() {
@@ -62,11 +65,11 @@ const AdminManageCategories = () => {
 
   // ============ API Functions ============
 
-  const getCategoriesFn = async () => {
+  const getCategoriesFn = async (filters = {}) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await getCategory();
+      const data = await getCategory(filters);
       setCategories(data);
     } catch (err) {
       setError(err.message);
@@ -110,6 +113,18 @@ const AdminManageCategories = () => {
   };
 
   // ============ Side Effects ============
+  const handleSearch = (e) => {
+    e.preventDefault();
+    const filters = {};
+    if (searchCategory.trim()) filters.category = searchCategory.trim();
+    getCategoriesFn(filters);
+  };
+
+  const handleClearFilters = () => {
+    setSearchCategory("");
+    getCategoriesFn();
+  };
+
   useEffect(() => {
     getCategoriesFn();
   }, []);
@@ -244,9 +259,49 @@ const AdminManageCategories = () => {
         </button>
       </div>
 
+      {/* ============ Search / Filter Bar ============ */}
+      <form onSubmit={handleSearch} className="mt-6 flex flex-wrap items-end gap-3">
+        <div className="flex-1 min-w-[200px]">
+          <label className="block text-xs font-semibold text-gray-500 mb-1">اسم الفئة</label>
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="بحث باسم الفئة..."
+              value={searchCategory}
+              onChange={(e) => setSearchCategory(e.target.value)}
+              className="w-full py-2.5 pr-10 pl-3 border border-gray-200 rounded-xl outline-none
+                         focus:border-blue-400 focus:ring-2 focus:ring-blue-100
+                         transition-all duration-200 text-gray-800 text-sm"
+            />
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          </div>
+        </div>
+        <button
+          type="submit"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold
+                     text-sm text-white cursor-pointer transition-all duration-200
+                     hover:opacity-90 hover:-translate-y-0.5 active:scale-95
+                     bg-gradient-to-br from-primary to-primary-light shadow-[0_4px_16px_rgba(15,27,60,0.20)]"
+        >
+          <Search className="w-4 h-4" />
+          بحث
+        </button>
+        {searchCategory && (
+          <button
+            type="button"
+            onClick={handleClearFilters}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-semibold text-sm
+                       text-gray-600 border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+            مسح
+          </button>
+        )}
+      </form>
+
       {/* ============ Categories Table Card ============ */}
       <div
-        className="mt-8 rounded-2xl p-6 relative bg-white border-[1.5px] border-slate-200 shadow-[0_2px_24px_rgba(15,27,60,0.05)]"
+        className="mt-6 rounded-2xl p-6 relative bg-white border-[1.5px] border-slate-200 shadow-[0_2px_24px_rgba(15,27,60,0.05)]"
       >
         <h2 className="font-semibold text-gray-800">قائمة الفئات</h2>
         <p className="text-gray-400 text-sm font-light">

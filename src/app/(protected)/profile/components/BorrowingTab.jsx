@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen } from "lucide-react";
+import { BookOpen, CalendarClock } from "lucide-react";
 import Link from "next/link";
 import BookRow from "./BookRow";
 import SectionTitle from "./SectionTitle";
@@ -16,6 +16,9 @@ const BorrowingTab = ({
   returnBookLoading,
   setReturnBookLoading,
   returnBookRequestFn,
+  extensionLoading,
+  setExtensionLoading,
+  requestExtensionFn,
 }) => {
   if (borrowedBooksLoading) {
     return (
@@ -83,6 +86,33 @@ const BorrowingTab = ({
                   >
                     طلب إرجاع
                   </button>
+                )}
+
+                {/* Extension button — shown when 1 day or less remains (or overdue) */}
+                {(() => {
+                  const daysRemaining = Math.ceil(
+                    (new Date(borrowed.due_date) - new Date()) /
+                      (1000 * 60 * 60 * 24)
+                  );
+                  return daysRemaining <= 1;
+                })() && (
+                  extensionLoading === borrowed.id ? (
+                    <div className="flex justify-center">
+                      <LoadingSpinner />
+                    </div>
+                  ) : (
+                    <button
+                      onClick={async () => {
+                        setExtensionLoading(borrowed.id);
+                        await requestExtensionFn(borrowed.id);
+                        setExtensionLoading(null);
+                      }}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer hover:opacity-80 bg-amber-500/[12%] text-amber-600"
+                    >
+                      <CalendarClock className="w-3 h-3" />
+                      طلب تمديد
+                    </button>
+                  )
                 )}
               </>
             }

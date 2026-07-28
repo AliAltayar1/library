@@ -28,6 +28,8 @@ import {
   Layers,
   User,
   CalendarDays,
+  Quote,
+  BookmarkCheck,
 } from "lucide-react";
 
 import AdminStats from "../components/adminStats";
@@ -37,6 +39,8 @@ import AdminManageBorrowing from "../components/adminManageBorrowing";
 import AdminManageCategories from "../components/adminManageCategories";
 import AdminManageAuthors from "../components/adminManageAuthors";
 import AdminManageActivities from "../components/adminManageActivities";
+import AdminManageQuotes from "../components/adminManageQuotes";
+import AdminManageReservations from "../components/adminManageReservations";
 import { NAVY, NAVY2, GOLD, GOLD2, PARCH } from "@/lib/constants/colors";
 
 /* ─── Tab definitions ────────────────────────────────────────── */
@@ -45,9 +49,11 @@ const TABS = [
   { id: "manageBooks", label: "إدارة الكتب", icon: BookOpen },
   { id: "manageUsers", label: "إدارة المستخدمين", icon: Users },
   { id: "manageBorrowing", label: "إدارة الاستعارات", icon: RotateCcw },
+  { id: "manageReservations", label: "الحجوزات المسبقة", icon: BookmarkCheck },
   { id: "manageCategories", label: "إدارة الفئات", icon: Layers },
   { id: "manageAuthors", label: "إدارة المؤلفين", icon: User },
   { id: "manageActivities", label: "إدارة الأنشطة", icon: CalendarDays },
+  { id: "manageQuotes", label: "إدارة الاقتباسات", icon: Quote },
 ];
 
 /* ═══════════════════════════════════════════════════════════════
@@ -55,7 +61,7 @@ const TABS = [
    ═══════════════════════════════════════════════════════════════ */
 const Admin = () => {
   const [tabs, setTabs] = useState("statistics");
-
+  //
   return (
     <div dir="rtl" className="overflow-x-hidden bg-background min-h-screen">
       {/* ══════════════════════════════════════════════════════════
@@ -165,9 +171,11 @@ const Admin = () => {
           {tabs === "manageBooks" && <AdminManageBooks />}
           {tabs === "manageUsers" && <AdminManageUser />}
           {tabs === "manageBorrowing" && <AdminManageBorrowing />}
+          {tabs === "manageReservations" && <AdminManageReservations />}
           {tabs === "manageCategories" && <AdminManageCategories />}
           {tabs === "manageAuthors" && <AdminManageAuthors />}
           {tabs === "manageActivities" && <AdminManageActivities />}
+          {tabs === "manageQuotes" && <AdminManageQuotes />}
         </div>
       </section>
     </div>

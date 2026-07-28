@@ -7,8 +7,15 @@ const nextConfig = {
         hostname: "book-shelf-project-gs7l.onrender.com",
         pathname: "/media/**",
       },
+      // ngrok — http (local dev fallback)
       {
         protocol: "http",
+        hostname: "unlubricant-nonqualitative-colton.ngrok-free.dev",
+        pathname: "/media/**",
+      },
+      // ngrok — https (standard ngrok tunnel protocol)
+      {
+        protocol: "https",
         hostname: "unlubricant-nonqualitative-colton.ngrok-free.dev",
         pathname: "/media/**",
       },

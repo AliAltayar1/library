@@ -14,7 +14,7 @@
  */
 
 import React, { useEffect, useState } from "react";
-import { Plus, X, Pencil, Trash2, User } from "lucide-react";
+import { Plus, X, Pencil, Trash2, User, Search } from "lucide-react";
 import { getAuthor } from "../../../lib/admin/getAuthor";
 import { addAuthor } from "../../../lib/admin/addAuthor";
 import { updateAuthor } from "../../../lib/admin/updateAuthor";
@@ -36,6 +36,9 @@ const AdminManageAuthors = () => {
   const [deleteId, setDeleteId] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
+  // ─── Search / filter state
+  const [searchAuthor, setSearchAuthor] = useState("");
+
   // ============ Helpers ============
   function resetForm() {
     setForm({ id: "", name: "" });
@@ -56,11 +59,11 @@ const AdminManageAuthors = () => {
   }
 
   // ============ API ============
-  const getAuthorsFn = async () => {
+  const getAuthorsFn = async (filters = {}) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await getAuthor();
+      const data = await getAuthor(filters);
       setAuthors(data);
     } catch (err) {
       setError(err.message);
@@ -101,6 +104,18 @@ const AdminManageAuthors = () => {
     } finally {
       setDeleting(false);
     }
+  };
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    const filters = {};
+    if (searchAuthor.trim()) filters.author = searchAuthor.trim();
+    getAuthorsFn(filters);
+  };
+
+  const handleClearFilters = () => {
+    setSearchAuthor("");
+    getAuthorsFn();
   };
 
   useEffect(() => {
@@ -230,9 +245,49 @@ const AdminManageAuthors = () => {
         </button>
       </div>
 
+      {/* ============ Search / Filter Bar ============ */}
+      <form onSubmit={handleSearch} className="mt-6 flex flex-wrap items-end gap-3">
+        <div className="flex-1 min-w-[200px]">
+          <label className="block text-xs font-semibold text-gray-500 mb-1">اسم المؤلف</label>
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="بحث باسم المؤلف..."
+              value={searchAuthor}
+              onChange={(e) => setSearchAuthor(e.target.value)}
+              className="w-full py-2.5 pr-10 pl-3 border border-gray-200 rounded-xl outline-none
+                         focus:border-blue-400 focus:ring-2 focus:ring-blue-100
+                         transition-all duration-200 text-gray-800 text-sm"
+            />
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          </div>
+        </div>
+        <button
+          type="submit"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold
+                     text-sm text-white cursor-pointer transition-all duration-200
+                     hover:opacity-90 hover:-translate-y-0.5 active:scale-95
+                     bg-gradient-to-br from-primary to-primary-light shadow-[0_4px_16px_rgba(15,27,60,0.20)]"
+        >
+          <Search className="w-4 h-4" />
+          بحث
+        </button>
+        {searchAuthor && (
+          <button
+            type="button"
+            onClick={handleClearFilters}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-semibold text-sm
+                       text-gray-600 border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+            مسح
+          </button>
+        )}
+      </form>
+
       {/* ── Authors Table Card ── */}
       <div
-        className="mt-8 rounded-2xl p-6 relative bg-white border-[1.5px] border-slate-200 shadow-[0_2px_24px_rgba(15,27,60,0.05)]"
+        className="mt-6 rounded-2xl p-6 relative bg-white border-[1.5px] border-slate-200 shadow-[0_2px_24px_rgba(15,27,60,0.05)]"
       >
         <h2 className="font-semibold text-gray-800">قائمة المؤلفين</h2>
         <p className="text-gray-400 text-sm font-light">

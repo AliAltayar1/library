@@ -116,7 +116,7 @@ const AdminStats = () => {
     setBooksLoading(true);
     try {
       const data = await getBooks();
-      setBooks(data);
+      setBooks(data.results);
     } catch (error) {
       setBooksError(error.message);
     } finally {

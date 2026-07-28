@@ -15,7 +15,16 @@
  */
 
 import React, { useEffect, useState } from "react";
-import { Plus, X, Pencil, BookOpen, ScrollText, Trash2 } from "lucide-react";
+import {
+  Plus,
+  X,
+  Pencil,
+  BookOpen,
+  ScrollText,
+  Trash2,
+  Search,
+  FileDown,
+} from "lucide-react";
 import { getBooks } from "../../../lib/admin/getBooks";
 import { editBookApi } from "../../../lib/admin/editBook";
 import { addBookApi } from "../../../lib/admin/addBook";
@@ -25,6 +34,7 @@ import { archiveBook } from "../../../lib/admin/archiveBook";
 import { unarchiveBook } from "../../../lib/admin/unarchiveBook";
 import { getAdminBookSummaries } from "../../../lib/admin/getBookSummaries";
 import { deleteBookSummary } from "../../../lib/admin/deleteBookSummary";
+import { exportBooks } from "../../../lib/admin/exportBooks";
 import ArchiveUnarchiveBook from "../UI/ArchiveUnarchiveBtn";
 import LoadingSpinner from "../UI/LoadingSpinner";
 import { toast } from "sonner";
@@ -58,6 +68,13 @@ const AdminManageBooks = () => {
   const [books, setBooks] = useState([]);
   const [booksLoading, setBooksLoading] = useState(false);
   const [booksError, setBooksError] = useState(null);
+
+  // ─── Search / filter state
+  const [searchAuthor, setSearchAuthor] = useState("");
+  const [searchCategory, setSearchCategory] = useState("");
+
+  // ─── Export state
+  const [exportLoading, setExportLoading] = useState(false);
 
   // ─── Summaries modal state
   const [summariesModal, setSummariesModal] = useState(null); // { bookId, title }
@@ -106,11 +123,12 @@ const AdminManageBooks = () => {
   const patch = (key, val) => setBookForm((f) => ({ ...f, [key]: val }));
 
   // ============ API Functions ============
-  const getBooksFn = async () => {
+  const getBooksFn = async (filters = {}) => {
     setBooksLoading(true);
+    setBooksError(null);
     try {
-      const data = await getBooks();
-      setBooks(data);
+      const data = await getBooks(filters);
+      setBooks(data.results);
     } catch (error) {
       setBooksError(error.message);
     } finally {
@@ -180,7 +198,7 @@ const AdminManageBooks = () => {
       console.log(data);
       setSummaries(Array.isArray(data) ? data : (data.results ?? []));
     } catch (err) {
-      toast.error("تعذّر جلب الملخصات: " + err.message);
+      toast.error("تعذّر جلب التعليقات: " + err.message);
     } finally {
       setSummariesLoading(false);
     }
@@ -200,6 +218,35 @@ const AdminManageBooks = () => {
   };
 
   // ============ Side Effects ============
+  const handleSearch = (e) => {
+    e.preventDefault();
+    const filters = {};
+    if (searchAuthor.trim()) filters.author = searchAuthor.trim();
+    if (searchCategory.trim()) filters.category = searchCategory.trim();
+    getBooksFn(filters);
+  };
+
+  const handleExport = async () => {
+    setExportLoading(true);
+    try {
+      const filters = {};
+      if (searchAuthor.trim()) filters.author = searchAuthor.trim();
+      if (searchCategory.trim()) filters.category = searchCategory.trim();
+      await exportBooks(filters);
+      toast.success("تم تصدير الكتب بنجاح ✅");
+    } catch (err) {
+      toast.error("فشل التصدير: " + err.message);
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  const handleClearFilters = () => {
+    setSearchAuthor("");
+    setSearchCategory("");
+    getBooksFn();
+  };
+
   useEffect(() => {
     getBooksFn();
     getCategoriesFn();
@@ -224,7 +271,7 @@ const AdminManageBooks = () => {
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h2 className="text-lg font-bold text-primary">
-                  ملخصات الكتاب
+                  تعليقات الكتاب
                 </h2>
                 <p className="text-sm text-gray-400 mt-0.5 truncate max-w-[340px]">
                   {summariesModal.title}
@@ -243,7 +290,7 @@ const AdminManageBooks = () => {
             {!summariesLoading && summaries.length === 0 && (
               <div className="text-center text-gray-400 py-10">
                 <ScrollText className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                <p className="font-medium">لا توجد ملخصات بعد</p>
+                <p className="font-medium">لا توجد تعليقات بعد</p>
               </div>
             )}
 
@@ -256,14 +303,10 @@ const AdminManageBooks = () => {
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
-                        <div
-                          className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 bg-primary/[8%] text-primary"
-                        >
+                        <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 bg-primary/[8%] text-primary">
                           {s.username[0].toUpperCase()}
                         </div>
-                        <span
-                          className="text-xs font-semibold text-primary-light"
-                        >
+                        <span className="text-xs font-semibold text-primary-light">
                           {`القارئ ${s.first_name} ${s.last_name}`}
                         </span>
                       </div>
@@ -449,32 +492,108 @@ const AdminManageBooks = () => {
       {/* ============ Page Header ============ */}
       <div className="flex justify-between items-center gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-primary">
-            إدارة الكتب
-          </h1>
+          <h1 className="text-2xl font-bold text-primary">إدارة الكتب</h1>
           <p className="text-gray-400 font-medium text-sm mt-0.5">
             إضافة وتعديل وأرشفة الكتب
           </p>
         </div>
 
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Export Excel */}
+          <button
+            onClick={handleExport}
+            disabled={exportLoading}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold
+                       text-sm cursor-pointer transition-all duration-200
+                       hover:-translate-y-0.5 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed
+                       border border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100"
+          >
+            <FileDown className="w-4 h-4" />
+            {exportLoading ? "جارٍ التصدير..." : "تصدير Excel"}
+          </button>
+
+          {/* Add book */}
+          <button
+            onClick={openAdd}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold
+                       text-sm text-white cursor-pointer transition-all duration-200
+                       hover:opacity-90 hover:-translate-y-0.5 active:scale-95 shadow-[0_4px_16px_rgba(15,27,60,0.20)]"
+            style={{
+              background: `linear-gradient(135deg, ${NAVY} 0%, ${NAVY2} 100%)`,
+            }}
+          >
+            <Plus className="w-4 h-4" />
+            إضافة كتاب جديد
+          </button>
+        </div>
+      </div>
+
+      {/* ============ Search / Filter Bar ============ */}
+      <form
+        onSubmit={handleSearch}
+        className="mt-8 flex flex-wrap items-end gap-3"
+      >
+        <div className="flex-1 min-w-[180px]">
+          <label className="block text-xs font-semibold text-gray-500 mb-1">
+            المؤلف
+          </label>
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="بحث بالمؤلف..."
+              value={searchAuthor}
+              onChange={(e) => setSearchAuthor(e.target.value)}
+              className="w-full py-2.5 pr-10 pl-3 border border-gray-200 rounded-xl outline-none
+                         focus:border-blue-400 focus:ring-2 focus:ring-blue-100
+                         transition-all duration-200 text-gray-800 text-sm"
+            />
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          </div>
+        </div>
+        <div className="flex-1 min-w-[180px]">
+          <label className="block text-xs font-semibold text-gray-500 mb-1">
+            الفئة
+          </label>
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="بحث بالفئة..."
+              value={searchCategory}
+              onChange={(e) => setSearchCategory(e.target.value)}
+              className="w-full py-2.5 pr-10 pl-3 border border-gray-200 rounded-xl outline-none
+                         focus:border-blue-400 focus:ring-2 focus:ring-blue-100
+                         transition-all duration-200 text-gray-800 text-sm"
+            />
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          </div>
+        </div>
         <button
-          onClick={openAdd}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold
+          type="submit"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold
                      text-sm text-white cursor-pointer transition-all duration-200
-                     hover:opacity-90 hover:-translate-y-0.5 active:scale-95 shadow-[0_4px_16px_rgba(15,27,60,0.20)]"
+                     hover:opacity-90 hover:-translate-y-0.5 active:scale-95"
           style={{
             background: `linear-gradient(135deg, ${NAVY} 0%, ${NAVY2} 100%)`,
           }}
         >
-          <Plus className="w-4 h-4" />
-          إضافة كتاب جديد
+          <Search className="w-4 h-4" />
+          بحث
         </button>
-      </div>
+        {(searchAuthor || searchCategory) && (
+          <button
+            type="button"
+            onClick={handleClearFilters}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-semibold text-sm
+                       text-gray-600 border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+            مسح
+          </button>
+        )}
+      </form>
 
       {/* ============ Books Table Card ============ */}
-      <div
-        className="mt-8 rounded-2xl p-6 relative bg-white border-[1.5px] border-[#e2e8f0] shadow-[0_2px_24px_rgba(15,27,60,0.05)]"
-      >
+      <div className="mt-6 rounded-2xl p-6 relative bg-white border-[1.5px] border-[#e2e8f0] shadow-[0_2px_24px_rgba(15,27,60,0.05)]">
         <h2 className="font-semibold text-gray-800">قائمة الكتب</h2>
         <p className="text-gray-400 text-sm font-light">
           جميع الكتب في المكتبة
@@ -493,9 +612,7 @@ const AdminManageBooks = () => {
         {/* Empty state */}
         {!booksLoading && !booksError && books.length === 0 && (
           <div className="text-center text-gray-400 mt-12 pb-4">
-            <div
-              className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3 bg-primary/[10%]"
-            >
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3 bg-primary/[10%]">
               <BookOpen className="w-8 h-8 text-primary-light" />
             </div>
             <p className="font-medium">لا توجد كتب بعد</p>
@@ -533,14 +650,14 @@ const AdminManageBooks = () => {
                   <tr
                     key={book.id}
                     className={`transition-all duration-200 border-b border-slate-100 ${
-                      book.is_archived ? "bg-slate-50 opacity-75" : "hover:bg-blue-50"
+                      book.is_archived
+                        ? "bg-slate-50 opacity-75"
+                        : "hover:bg-blue-50"
                     }`}
                   >
                     {/* ID badge */}
                     <td className="p-3 py-4">
-                      <span
-                        className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-primary/[8%] text-primary-light"
-                      >
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-primary/[8%] text-primary-light">
                         #{book.id}
                       </span>
                     </td>
@@ -557,9 +674,7 @@ const AdminManageBooks = () => {
 
                     {/* Category pill */}
                     <td className="p-3 py-4">
-                      <span
-                        className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap bg-accent/[10%] text-accent"
-                      >
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap bg-accent/[10%] text-accent">
                         {book.category?.name}
                       </span>
                     </td>
@@ -573,7 +688,9 @@ const AdminManageBooks = () => {
                     <td className="p-3 py-4 text-center">
                       <span
                         className={`inline-flex items-center justify-center min-w-[28px] px-2.5 py-1 rounded-full text-xs font-bold ${
-                          book.available_copies > 0 ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-500"
+                          book.available_copies > 0
+                            ? "bg-green-500/10 text-green-600"
+                            : "bg-red-500/10 text-red-500"
                         }`}
                       >
                         {book.available_copies}
@@ -584,7 +701,9 @@ const AdminManageBooks = () => {
                     <td className="p-3 py-4">
                       <span
                         className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${
-                          book.is_avaiable ? "bg-green-500/10 text-green-600" : "bg-slate-500/15 text-slate-400"
+                          book.is_avaiable
+                            ? "bg-green-500/10 text-green-600"
+                            : "bg-slate-500/15 text-slate-400"
                         }`}
                       >
                         {book.is_avaiable ? "متاح" : "غير متاح"}
@@ -613,7 +732,7 @@ const AdminManageBooks = () => {
                                      hover:-translate-y-0.5 whitespace-nowrap bg-primary/[8%] text-primary-light border border-primary/[12%]"
                         >
                           <ScrollText className="w-3.5 h-3.5" />
-                          ملخصات
+                          تعليقات
                         </button>
 
                         {/* Archive / Unarchive */}
