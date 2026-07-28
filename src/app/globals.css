@@ -272,6 +272,7 @@ body {
   min-width: 100%;
   padding-left: 2.5rem;
   padding-right: 2.5rem;
+  overflow: hidden;
 }
 
 @media (min-width: 768px) {
@@ -283,8 +284,8 @@ body {
 
 @media (min-width: 1200px) {
   .container {
-    padding-left: 7rem;
-    padding-right: 7rem;
+    padding-left: 4rem;
+    padding-right: 4rem;
   }
 }
 

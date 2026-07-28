@@ -10,6 +10,7 @@ import {
   Sparkles,
   User,
   Activity,
+  Stars,
 } from "lucide-react";
 import ProfileStatCard from "./components/ProfileStatCard";
 import SectionTitle from "./components/SectionTitle";
@@ -26,6 +27,7 @@ import LoadingSpinner from "@/app/UI/LoadingSpinner";
 import { profileBorrowed } from "../../../../lib/user/profileBorrowed";
 import { profile } from "../../../../lib/user/profile";
 import { returnBookRequest } from "../../../../lib/user/returnBookRequest";
+import { requestExtension } from "../../../../lib/user/requestExtension";
 import { profileReturned } from "../../../../lib/user/profileReturend";
 import { getFavoritesBooks } from "../../../../lib/favorite/getFavBook";
 import { removeFromFav } from "../../../../lib/favorite/removeFromFav";
@@ -38,7 +40,15 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { NAVY, NAVY2, GOLD, GOLD2, PARCH, PIE_COLORS } from "@/lib/constants/colors";
+import {
+  NAVY,
+  NAVY2,
+  GOLD,
+  GOLD2,
+  PARCH,
+  PIE_COLORS,
+} from "@/lib/constants/colors";
+import RecommendedBooks from "@/app/components/RecommendedBooks";
 
 /* ═══════════════════════════════════════════════════════════════
    Main Profile Page
@@ -55,6 +65,8 @@ const Profile = () => {
     borrowed_books_count: 0,
     overdue_books_count: 0,
     favorites_count: 0,
+    available_books: null, // null = loading / not fetched yet
+    tier: undefined,
   });
   const [userInfoLoading, setUserInfoLoading] = useState(false);
   const [borrowedBooks, setBorrowedBooks] = useState([]);
@@ -69,6 +81,7 @@ const Profile = () => {
   const [favLoading, setFavLoading] = useState(false);
   const [returnBookLoading, setReturnBookLoading] = useState(null);
   const [borrowBookLoading, setBorrowBookLoading] = useState(null);
+  const [extensionLoading, setExtensionLoading] = useState(null);
   const [activities, setActivities] = useState([]);
   const [activityToggleLoading, setActivityToggleLoading] = useState(null);
 
@@ -121,6 +134,16 @@ const Profile = () => {
       toast.success("تم طلب الإرجاع بنجاح");
     } catch (error) {
       toast.error("حدث خطأ اثناء الإرجاع " + error.message);
+    }
+  };
+
+  const requestExtensionFn = async (borrowId) => {
+    try {
+      await requestExtension(borrowId);
+      getBorrowedBooksFn();
+      toast.success("تم طلب التمديد بنجاح");
+    } catch (error) {
+      toast.error("حدث خطأ أثناء طلب التمديد: " + error.message);
     }
   };
 
@@ -179,6 +202,8 @@ const Profile = () => {
     getBooksLogFn();
     getFavoritesBooksFn();
   }, []);
+
+  // console.log(borrowedBooks);
 
   /* ── Derived chart data ─────────────────────────────────────── */
   // Set of book IDs currently borrowed — used to disable re-borrow button
@@ -267,10 +292,7 @@ const Profile = () => {
 
   /* ── Render ─────────────────────────────────────────────────── */
   return (
-    <div
-      dir="rtl"
-      className="overflow-x-hidden min-h-screen bg-background"
-    >
+    <div dir="rtl" className="overflow-x-hidden min-h-screen bg-background">
       {/* ══════════════════════════════════════════════════════════
           1. PROFILE HERO BANNER
           ══════════════════════════════════════════════════════════ */}
@@ -321,15 +343,9 @@ const Profile = () => {
               >
                 {userInfo.first_name} {userInfo.last_name}
               </h1>
-              <p
-                className="mt-1 text-sm text-white/60"
-              >
-                {userInfo.email}
-              </p>
+              <p className="mt-1 text-sm text-white/60">{userInfo.email}</p>
               {joinDate && (
-                <p
-                  className="mt-1.5 flex items-center gap-1.5 text-xs justify-center lg:justify-end text-white/45"
-                >
+                <p className="mt-1.5 flex items-center gap-1.5 text-xs justify-center lg:justify-end text-white/45">
                   <Calendar className="w-3.5 h-3.5" />
                   عضو منذ {joinDate}
                 </p>
@@ -339,9 +355,7 @@ const Profile = () => {
             {/* Settings */}
             <div className="flex-shrink-0">
               <Link href="/settings">
-                <button
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm cursor-pointer transition-all duration-300 hover:scale-105 bg-white/10 text-white border border-white/18"
-                >
+                <button className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm cursor-pointer transition-all duration-300 hover:scale-105 bg-white/10 text-white border border-white/18">
                   <Settings className="w-4 h-4" />
                   الإعدادات
                 </button>
@@ -351,9 +365,7 @@ const Profile = () => {
         )}
 
         {/* Diagonal clip */}
-        <div
-          className="absolute bottom-0 left-0 right-0 leading-[0]"
-        >
+        <div className="absolute bottom-0 left-0 right-0 leading-[0]">
           <svg
             viewBox="0 0 1440 60"
             xmlns="http://www.w3.org/2000/svg"
@@ -398,6 +410,27 @@ const Profile = () => {
             bgClass="bg-rose-50"
             iconClass="text-rose-600"
           />
+          {userInfo.available_books !== null && (
+            <ProfileStatCard
+              icon={Stars}
+              value={userInfo.available_books}
+              label="الكتب المتبقية للاستعارة "
+              bgClass={
+                userInfo.available_books === 0
+                  ? "bg-rose-50"
+                  : userInfo.available_books === 1
+                    ? "bg-amber-50"
+                    : "bg-emerald-50"
+              }
+              iconClass={
+                userInfo.available_books === 0
+                  ? "text-rose-500"
+                  : userInfo.available_books === 1
+                    ? "text-amber-500"
+                    : "text-emerald-600"
+              }
+            />
+          )}
         </div>
       </section>
 
@@ -451,9 +484,7 @@ const Profile = () => {
                       className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                       style={{ background: PIE_COLORS[i % PIE_COLORS.length] }}
                     />
-                    <span
-                      className="text-sm font-medium w-28 flex-shrink-0 text-primary"
-                    >
+                    <span className="text-sm font-medium w-28 flex-shrink-0 text-primary">
                       {d.name}
                     </span>
                     <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden">
@@ -465,9 +496,7 @@ const Profile = () => {
                         }}
                       />
                     </div>
-                    <span
-                      className="text-sm font-bold w-8 text-left text-primary"
-                    >
+                    <span className="text-sm font-bold w-8 text-left text-primary">
                       {d.value}
                     </span>
                   </div>
@@ -483,15 +512,62 @@ const Profile = () => {
           ══════════════════════════════════════════════════════════ */}
       {userInfo.overdue_books_count > 0 && (
         <section className="container pb-6">
-          <div
-            className="rounded-2xl p-5 flex items-center gap-3 flex-wrap bg-rose-600/10 border border-rose-600/25"
-          >
-            <TriangleAlert
-              className="w-5 h-5 flex-shrink-0 text-rose-600"
-            />
+          <div className="rounded-2xl p-5 flex items-center gap-3 flex-wrap bg-rose-600/10 border border-rose-600/25">
+            <TriangleAlert className="w-5 h-5 flex-shrink-0 text-rose-600" />
             <p className="text-sm font-medium text-rose-700">
               لديك <strong>{userInfo.overdue_books_count}</strong> كتاب متأخر —
               يرجى إرجاعها في أقرب وقت ممكن لتجنب الرسوم.
+            </p>
+          </div>
+        </section>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════
+          4b. BORROWING QUOTA BANNER
+          ══════════════════════════════════════════════════════════ */}
+      {userInfo.available_books !== null && (
+        <section className="container pb-6">
+          <div
+            className={`rounded-2xl p-5 flex items-center gap-3 flex-wrap border ${
+              userInfo.available_books === 0
+                ? "bg-rose-600/10 border-rose-600/25"
+                : userInfo.available_books === 1
+                  ? "bg-amber-500/10 border-amber-500/25"
+                  : "bg-emerald-600/10 border-emerald-600/25"
+            }`}
+          >
+            <Stars
+              className={`w-5 h-5 flex-shrink-0 ${
+                userInfo.available_books === 0
+                  ? "text-rose-600"
+                  : userInfo.available_books === 1
+                    ? "text-amber-500"
+                    : "text-emerald-600"
+              }`}
+            />
+            <p
+              className={`text-sm font-medium ${
+                userInfo.available_books === 0
+                  ? "text-rose-700"
+                  : userInfo.available_books === 1
+                    ? "text-amber-700"
+                    : "text-emerald-700"
+              }`}
+            >
+              {userInfo.available_books === 0 ? (
+                <>
+                  لقد وصلت إلى <strong>الحد الأقصى</strong> للاستعارة لعضويتك —
+                  أرجع كتاباً لتتمكن من استعارة كتاب جديد.
+                </>
+              ) : (
+                <>
+                  لديك <strong>{userInfo.available_books}</strong>{" "}
+                  {userInfo.available_books === 1
+                    ? "حصة استعارة متبقية"
+                    : "حصص استعارة متبقية"}{" "}
+                  ضمن اشتراكك الحالي.
+                </>
+              )}
             </p>
           </div>
         </section>
@@ -502,9 +578,15 @@ const Profile = () => {
           ══════════════════════════════════════════════════════════ */}
       <section className="container pb-16">
         {/* Tab navigation */}
-        <div
-          className="flex gap-2 p-2 rounded-2xl mb-6 overflow-x-auto custom-scroll flex-nowrap bg-primary/[0.06]"
-        >
+        <div className="flex gap-2 p-2 rounded-2xl mb-6 overflow-x-auto custom-scroll flex-nowrap bg-primary/[0.06]">
+          <TabBtn
+            active={tabs === "recommended"}
+            onClick={() => setTabs("recommended")}
+            icon={Sparkles}
+          >
+            كتب مقترحة
+          </TabBtn>
+
           <TabBtn
             active={tabs === "borrowing"}
             onClick={() => setTabs("borrowing")}
@@ -523,6 +605,7 @@ const Profile = () => {
               </span>
             )}
           </TabBtn>
+
           <TabBtn
             active={tabs === "readingHistory"}
             onClick={() => setTabs("readingHistory")}
@@ -541,6 +624,7 @@ const Profile = () => {
               </span>
             )}
           </TabBtn>
+
           <TabBtn
             active={tabs === "favorites"}
             onClick={() => setTabs("favorites")}
@@ -580,7 +664,14 @@ const Profile = () => {
           </TabBtn>
         </div>
 
-        {/* ── Tab 1: Borrowed Books ─────────────────────────────── */}
+        {/* ── Tab 1: Recommended Books ──────────────────────────── */}
+        {tabs === "recommended" && (
+          <div className="pt-2">
+            <RecommendedBooks compact />
+          </div>
+        )}
+
+        {/* ── Tab 2: Borrowed Books ─────────────────────────────── */}
         {tabs === "borrowing" && (
           <BorrowingTab
             borrowedBooks={borrowedBooks}
@@ -589,10 +680,13 @@ const Profile = () => {
             returnBookLoading={returnBookLoading}
             setReturnBookLoading={setReturnBookLoading}
             returnBookRequestFn={returnBookRequestFn}
+            extensionLoading={extensionLoading}
+            setExtensionLoading={setExtensionLoading}
+            requestExtensionFn={requestExtensionFn}
           />
         )}
 
-        {/* ── Tab 2: Reading History ────────────────────────────── */}
+        {/* ── Tab 3: Reading History ────────────────────────────── */}
         {tabs === "readingHistory" && (
           <ReadingHistoryTab
             booksLog={booksLog}
@@ -602,10 +696,11 @@ const Profile = () => {
             borrowBookLoading={borrowBookLoading}
             setBorrowBookLoading={setBorrowBookLoading}
             borrowBookFn={borrowBookFn}
+            availableBooks={userInfo.available_books}
           />
         )}
 
-        {/* ── Tab 3: Favorites ──────────────────────────────────── */}
+        {/* ── Tab 4: Favorites ──────────────────────────────────── */}
         {tabs === "favorites" && (
           <FavoritesTab
             favoritesBooks={favoritesBooks}
@@ -617,7 +712,7 @@ const Profile = () => {
           />
         )}
 
-        {/* ── Tab 4: Activities ──────────────────────────────────── */}
+        {/* ── Tab 5: Activities ──────────────────────────────────── */}
         {tabs === "activity" && (
           <ActivityTab
             activities={activities}

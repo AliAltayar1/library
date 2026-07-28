@@ -21,10 +21,13 @@ import {
   Heart,
   User,
   Layers,
-  ScrollText,
+  MapPin,
+  MessageSquare,
   Send,
   ChevronDown,
   ChevronUp,
+  Star,
+  Stars,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -32,11 +35,11 @@ import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { getBook } from "../../../../../lib/books/getBooks";
 import { borrowBook } from "../../../../../lib/user/borrow";
+import { reserveBook } from "../../../../../lib/user/reserve";
 import { profileBorrowed } from "../../../../../lib/user/profileBorrowed";
 import { toast } from "sonner";
 import LoadingSpinner from "@/app/UI/LoadingSpinner";
 import { addToFav } from "../../../../../lib/favorite/addToFav";
-import { getFavoritesBooks } from "../../../../../lib/favorite/getFavBook";
 import { removeFromFav } from "../../../../../lib/favorite/removeFromFav";
 import { motion } from "framer-motion";
 import { addSummary } from "../../../../../lib/books/addSummary";
@@ -54,19 +57,13 @@ const Book = () => {
   const [loading, setLoading] = useState(false);
   const [borrowLoading, setBorrorLoading] = useState(false);
   const [favLoading, setFavLoading] = useState(false);
-  const [favoritesBooks, setFavoritesBooks] = useState([]);
   const [borrowedBooks, setBorrowedBooks] = useState([]);
-
   // ─── Summary state ────────────────────────────────────────────
   const [summaries, setSummaries] = useState([]);
   const [summaryText, setSummaryText] = useState("");
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [submittingSummary, setSubmittingSummary] = useState(false);
   const [showSummaries, setShowSummaries] = useState(true);
-
-  const favoriteIds = new Set(
-    favoritesBooks && favoritesBooks.map((fav) => fav.book.id),
-  );
 
   // Derive if the current book is already borrowed by the user
   const isBorrowed = borrowedBooks.some((b) => b.book?.id === book.id);
@@ -84,33 +81,23 @@ const Book = () => {
     }
   };
 
-  const getFavoritesBooksFn = async () => {
-    try {
-      const data = await getFavoritesBooks();
-      setFavoritesBooks(data);
-    } catch (error) {
-      toast.error(error.message);
-    }
-  };
-
-  const removeFromFavFn = async (bookId) => {
-    try {
-      await removeFromFav(bookId);
-      await getFavoritesBooksFn();
-      toast.success("تمت الإزالة من المفضلة");
-    } catch (error) {
-      toast.error("حدث خطأ أثناء الإزالة: " + error.message);
-    }
-  };
-
-  const addToFavFn = async (bookId) => {
+  const handleToggleFav = async () => {
+    const isFav = book.is_like;
     setFavLoading(true);
+    // Optimistic update
+    setBook((prev) => ({ ...prev, is_like: !isFav }));
     try {
-      await addToFav(bookId);
-      await getFavoritesBooksFn();
-      toast.success("تمت الإضافة إلى المفضلة");
+      if (isFav) {
+        await removeFromFav(book.id);
+        toast.success("تمت الإزالة من المفضلة");
+      } else {
+        await addToFav(book.id);
+        toast.success("تمت الإضافة إلى المفضلة");
+      }
     } catch (error) {
-      toast.error("حدث خطأ أثناء الإضافة: " + error.message);
+      // Rollback on failure
+      setBook((prev) => ({ ...prev, is_like: isFav }));
+      toast.error("حدث خطأ: " + error.message);
     } finally {
       setFavLoading(false);
     }
@@ -131,6 +118,18 @@ const Book = () => {
     }
   };
 
+  const reserveBookFn = async (bookId) => {
+    setBorrorLoading(true);
+    try {
+      await reserveBook(bookId);
+      toast.success("تم حجز الكتاب مسبقاً بنجاح!");
+    } catch (error) {
+      toast.error("حدث خطأ أثناء الحجز: " + error.message);
+    } finally {
+      setBorrorLoading(false);
+    }
+  };
+
   // ─── Summary API ──────────────────────────────────────────────
   const fetchSummaries = async () => {
     setSummaryLoading(true);
@@ -146,17 +145,17 @@ const Book = () => {
 
   const handleSubmitSummary = async () => {
     if (!user) {
-      toast.error("يرجى تسجيل الدخول أولاً لإضافة ملخص");
+      toast.error("يرجى تسجيل الدخول أولاً لإضافة تعليق");
       return;
     }
     if (!summaryText.trim()) {
-      toast.error("يرجى كتابة الملخص قبل الإرسال");
+      toast.error("يرجى كتابة التعليق قبل الإرسال");
       return;
     }
     setSubmittingSummary(true);
     try {
       await addSummary(id, summaryText.trim());
-      toast.success("تمت إضافة ملخصك بنجاح!");
+      toast.success("تم نشر تعليقك بنجاح!");
       setSummaryText("");
       fetchSummaries();
     } catch (err) {
@@ -168,7 +167,6 @@ const Book = () => {
 
   useEffect(() => {
     fetchBook(id);
-    getFavoritesBooksFn();
     fetchSummaries();
     // Fetch current borrowed books to check if this one is already borrowed
     profileBorrowed()
@@ -176,7 +174,7 @@ const Book = () => {
       .catch(() => {});
   }, []);
 
-  const isFav = favoriteIds.has(book.id);
+  const isFav = book.is_like;
 
   // ─── Metadata items ───────────────────────────────────────────
   const metaItems = [
@@ -190,6 +188,11 @@ const Book = () => {
       icon: BookCopy,
       label: "النسخ المتاحة",
       value: book.available_copies || 0,
+    },
+    {
+      icon: MapPin,
+      label: "رف الكتاب",
+      value: book.possition || "لا يوجد",
     },
   ];
 
@@ -264,6 +267,23 @@ const Book = () => {
             >
               بقلم {book.author?.name || "—"}
             </p>
+
+            {/* Star rating */}
+            <div className="flex items-center gap-1 mt-3">
+              {[1, 2, 3, 4, 5].map((s) => (
+                <Star
+                  key={s}
+                  className={`w-4 h-4 ${
+                    s <= Math.round(book.average_rating || 0)
+                      ? "text-amber-400 fill-amber-400"
+                      : "text-white/20"
+                  }`}
+                />
+              ))}
+              <span className="text-xs font-medium mr-1.5" style={{ color: "rgba(255,255,255,0.7)" }}>
+                {Number(book.average_rating || 0).toFixed(1)} ({book.rating_count || 0} تقييم)
+              </span>
+            </div>
 
             {/* Availability badge */}
             <div className="mt-4 inline-flex">
@@ -351,43 +371,88 @@ const Book = () => {
                   boxShadow: "0 4px 24px rgba(15,27,60,0.07)",
                 }}
               >
-                {/* Borrow button */}
+                {/* Borrow / Reserve button */}
                 {borrowLoading ? (
                   <div className="flex justify-center py-2">
                     <LoadingSpinner />
                   </div>
                 ) : (
-                  <button
-                    disabled={!book.is_avaiable || isBorrowed}
-                    onClick={() => borrowBookFn(book.id)}
-                    className="flex items-center justify-center gap-2 w-full py-3 rounded-xl font-bold text-sm transition-all duration-200"
-                    style={{
-                      background: isBorrowed
-                        ? "rgba(34,197,94,0.10)"
-                        : book.is_avaiable
-                          ? `linear-gradient(135deg, ${NAVY} 0%, ${NAVY2} 100%)`
-                          : "#cbd5e1",
-                      color: isBorrowed ? "#16a34a" : "white",
-                      border: isBorrowed
-                        ? "1.5px solid rgba(34,197,94,0.30)"
-                        : "none",
-                      cursor:
-                        book.is_avaiable && !isBorrowed
-                          ? "pointer"
-                          : "not-allowed",
-                      boxShadow:
-                        book.is_avaiable && !isBorrowed
-                          ? "0 4px 16px rgba(15,27,60,0.25)"
-                          : "none",
-                    }}
-                  >
-                    <BookCheck className="w-4 h-4" />
-                    {isBorrowed
-                      ? "مُستعار بالفعل"
-                      : book.is_avaiable
-                        ? "استعارة الكتاب"
-                        : "غير متاح حاليًا"}
-                  </button>
+                  (() => {
+                    const atLimit =
+                      book.available_books !== undefined &&
+                      book.available_books === 0;
+
+                    if (!book.is_avaiable) {
+                      return (
+                        <button
+                          onClick={() => reserveBookFn(book.id)}
+                          className="flex items-center justify-center gap-2 w-full py-3 rounded-xl font-bold text-sm transition-all duration-200 cursor-pointer shadow-[0_4px_16px_rgba(212,147,10,0.25)]"
+                          style={{
+                            background: `linear-gradient(135deg, ${GOLD} 0%, ${GOLD2} 100%)`,
+                            color: NAVY,
+                          }}
+                        >
+                          <BookCheck className="w-4 h-4" />
+                          حجز مسبق (الكتاب مُستعار)
+                        </button>
+                      );
+                    }
+
+                    const canBorrow = !isBorrowed && !atLimit;
+                    return (
+                      <>
+                        <button
+                          disabled={!canBorrow}
+                          onClick={() => borrowBookFn(book.id)}
+                          className="flex items-center justify-center gap-2 w-full py-3 rounded-xl font-bold text-sm transition-all duration-200"
+                          style={{
+                            background: isBorrowed
+                              ? "rgba(34,197,94,0.10)"
+                              : atLimit
+                                ? "rgba(239,68,68,0.08)"
+                                : `linear-gradient(135deg, ${NAVY} 0%, ${NAVY2} 100%)`,
+                            color: isBorrowed
+                              ? "#16a34a"
+                              : atLimit
+                                ? "#dc2626"
+                                : "white",
+                            border: isBorrowed
+                              ? "1.5px solid rgba(34,197,94,0.30)"
+                              : atLimit
+                                ? "1.5px solid rgba(239,68,68,0.25)"
+                                : "none",
+                            cursor: canBorrow ? "pointer" : "not-allowed",
+                            boxShadow: canBorrow
+                              ? "0 4px 16px rgba(15,27,60,0.25)"
+                              : "none",
+                          }}
+                        >
+                          {atLimit ? (
+                            <Stars className="w-4 h-4" />
+                          ) : (
+                            <BookCheck className="w-4 h-4" />
+                          )}
+                          {isBorrowed
+                            ? "مُستعار بالفعل"
+                            : atLimit
+                              ? "وصلت للحد الأقصى"
+                              : "استعارة الكتاب"}
+                        </button>
+                        {atLimit && (
+                          <p className="text-xs text-center text-rose-500 -mt-1">
+                            أرجع كتاباً من{" "}
+                            <a
+                              href="/profile"
+                              className="underline font-semibold"
+                            >
+                              ملفك الشخصي
+                            </a>{" "}
+                            لتتمكن من الاستعارة.
+                          </p>
+                        )}
+                      </>
+                    );
+                  })()
                 )}
 
                 {/* Favorite button */}
@@ -397,13 +462,7 @@ const Book = () => {
                   </div>
                 ) : (
                   <button
-                    onClick={async () => {
-                      setFavLoading(book.id);
-                      isFav
-                        ? await removeFromFavFn(book.id)
-                        : await addToFavFn(book.id);
-                      setFavLoading(null);
-                    }}
+                    onClick={handleToggleFav}
                     className="flex items-center justify-center gap-2 w-full py-3 rounded-xl font-bold text-sm transition-all duration-200 cursor-pointer"
                     style={{
                       background: isFav ? "rgba(239,68,68,0.08)" : `${NAVY}08`,
@@ -456,9 +515,7 @@ const Book = () => {
                   boxShadow: "0 2px 16px rgba(15,27,60,0.05)",
                 }}
               >
-                <h2
-                  className="text-lg font-bold mb-3 flex items-center gap-2 text-primary"
-                >
+                <h2 className="text-lg font-bold mb-3 flex items-center gap-2 text-primary">
                   <span
                     className="w-1 h-5 rounded-full inline-block"
                     style={{
@@ -481,9 +538,7 @@ const Book = () => {
                   boxShadow: "0 2px 16px rgba(15,27,60,0.05)",
                 }}
               >
-                <h2
-                  className="text-lg font-bold mb-5 flex items-center gap-2 text-primary"
-                >
+                <h2 className="text-lg font-bold mb-5 flex items-center gap-2 text-primary">
                   <span
                     className="w-1 h-5 rounded-full inline-block"
                     style={{
@@ -500,9 +555,7 @@ const Book = () => {
                       className="flex items-center gap-3 p-3 rounded-xl transition-colors duration-150 hover:bg-gray-50"
                       style={{ border: "1px solid #f1f5f9" }}
                     >
-                      <div
-                        className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-primary/[8%]"
-                      >
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-primary/[8%]">
                         <Icon className="w-4 h-4 text-primary-light" />
                       </div>
                       <div className="flex flex-col min-w-0">
@@ -518,7 +571,7 @@ const Book = () => {
                 </div>
               </div>
 
-              {/* ── Summaries Section ──────────────────────────── */}
+              {/* ── Comments Section ──────────────────────────── */}
               <motion.div
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -532,21 +585,17 @@ const Book = () => {
               >
                 {/* Header */}
                 <div className="flex items-center justify-between mb-5">
-                  <h2
-                    className="text-lg font-bold flex items-center gap-2 text-primary"
-                  >
+                  <h2 className="text-lg font-bold flex items-center gap-2 text-primary">
                     <span
                       className="w-1 h-5 rounded-full inline-block"
                       style={{
                         background: `linear-gradient(180deg, ${GOLD} 0%, ${GOLD2} 100%)`,
                       }}
                     />
-                    <ScrollText className="w-5 h-5 text-accent" />
-                    ملخصات القراء
+                    <MessageSquare className="w-5 h-5 text-accent" />
+                    تعليقات وآراء القراء
                     {summaries.length > 0 && (
-                      <span
-                        className="text-xs font-semibold px-2 py-0.5 rounded-full bg-primary/[10%] text-primary-light"
-                      >
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-primary/[10%] text-primary-light">
                         {summaries.length}
                       </span>
                     )}
@@ -565,7 +614,7 @@ const Book = () => {
 
                 {showSummaries && (
                   <>
-                    {/* Add summary form */}
+                    {/* Add comment form */}
                     <div
                       className="rounded-xl p-4 mb-5"
                       style={{
@@ -576,7 +625,7 @@ const Book = () => {
                       <textarea
                         value={summaryText}
                         onChange={(e) => setSummaryText(e.target.value)}
-                        placeholder="اكتب ملخصك هنا..."
+                        placeholder="شاركنا رأيك وتعليقك حول الكتاب..."
                         rows={4}
                         disabled={!user}
                         className="w-full py-2.5 px-3 border border-gray-200 rounded-xl outline-none
@@ -598,14 +647,14 @@ const Book = () => {
                           >
                             <Send className="w-3.5 h-3.5" />
                             {submittingSummary
-                              ? "جارٍ الإرسال..."
-                              : "إرسال الملخص"}
+                              ? "جارٍ النشر..."
+                              : "نشر التعليق"}
                           </button>
                         }
                       </div>
                     </div>
 
-                    {/* Summaries list */}
+                    {/* Comments list */}
                     {summaryLoading && (
                       <div className="flex justify-center py-6">
                         <LoadingSpinner />
@@ -614,12 +663,12 @@ const Book = () => {
 
                     {!summaryLoading && summaries.length === 0 && (
                       <div className="text-center text-gray-400 py-8">
-                        <ScrollText className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                        <MessageSquare className="w-10 h-10 mx-auto mb-2 opacity-30" />
                         <p className="text-sm font-medium">
-                          لا توجد ملخصات بعد
+                          لا توجد تعليقات بعد
                         </p>
                         <p className="text-xs mt-1">
-                          كن اول من يكتب ملخصاً لهذا الكتاب
+                          كن أول من يشارك رأيه حول هذا الكتاب
                         </p>
                       </div>
                     )}
@@ -637,15 +686,10 @@ const Book = () => {
                           >
                             {/* User info row */}
                             <div className="flex items-center gap-2 mb-2">
-                              <div
-                                className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 bg-primary/[8%] text-primary"
-                              >
-                                {console.log(s)}
+                              <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 bg-primary/[8%] text-primary">
                                 {s.username[0].toUpperCase()}
                               </div>
-                              <span
-                                className="text-xs font-semibold text-primary-light"
-                              >
+                              <span className="text-xs font-semibold text-primary-light">
                                 {`${s.first_name} ${s.last_name}`}
                               </span>
                               {s.created_at && (
@@ -656,7 +700,7 @@ const Book = () => {
                                 </span>
                               )}
                             </div>
-                            {/* Summary text */}
+                            {/* Comment text */}
                             <p
                               className="text-sm text-gray-600 leading-relaxed break-words"
                               style={{

@@ -30,21 +30,11 @@ import {
   X,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { fadeUp } from "@/app/lib/motionVariants";
 
 import { getBooks } from "../../../../lib/books/getBooks";
 import LoadingSpinner from "@/app/UI/LoadingSpinner";
 import { ChatMessage } from "@/app/components/chatMarkdown";
-
-// ─── Animation Variants ────────────────────────────────────────────────────────
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 20 },
-  visible: (delay = 0) => ({
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.5, delay, ease: "easeOut" },
-  }),
-};
 
 const msgVariants = {
   hidden: { opacity: 0, y: 12, scale: 0.97 },
@@ -134,7 +124,7 @@ const AICHAT = () => {
     setLoading(true);
     try {
       const data = await getBooks();
-      setBooks(data);
+      setBooks(data.results);
     } catch (err) {
       setBooksError(err.message || "فشل تحميل الكتب");
     } finally {

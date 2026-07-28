@@ -3,7 +3,6 @@ import Link from "next/link";
 import { Star } from "lucide-react";
 
 const STARS = [1, 2, 3, 4, 5];
-const STATIC_RATING = 4; // placeholder until real ratings API is available
 
 /**
  * BookCard — Premium card for displaying a single book
@@ -43,17 +42,20 @@ export default function BookCard({ book }) {
       {/* ── Card body ── */}
       <div className="flex flex-col flex-1 p-5 gap-3">
         {/* Star rating */}
-        <div className="flex gap-0.5">
+        <div className="flex items-center gap-0.5">
           {STARS.map((s) => (
             <Star
               key={s}
               className={`w-3.5 h-3.5 ${
-                s <= STATIC_RATING
+                s <= Math.round(book.average_rating || 0)
                   ? "text-amber-400 fill-amber-400"
                   : "text-slate-200"
               }`}
             />
           ))}
+          <span className="text-xs text-gray-400 mr-1">
+            ({book.rating_count || 0})
+          </span>
         </div>
 
         {/* Title */}

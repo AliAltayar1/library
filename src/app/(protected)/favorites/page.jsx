@@ -36,53 +36,13 @@ import { removeFromFav } from "../../../../lib/favorite/removeFromFav";
 import { toast } from "sonner";
 import { getCategories } from "../../../../lib/categories/categories";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import {
+  containerVariants,
+  cardVariants,
+  fadeUp,
+} from "@/app/lib/motionVariants";
 
-// ─── Animation Variants ───────────────────────────────────────────────────────
-
-const containerVariants = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.08 } },
-};
-
-const cardVariants = {
-  hidden: { opacity: 0, y: 32, scale: 0.97 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    scale: 1,
-    transition: { duration: 0.45, ease: [0.25, 0.8, 0.25, 1] },
-  },
-  exit: {
-    opacity: 0,
-    scale: 0.93,
-    y: -12,
-    transition: { duration: 0.3, ease: "easeIn" },
-  },
-};
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 20 },
-  visible: (delay = 0) => ({
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.5, delay, ease: "easeOut" },
-  }),
-};
-
-// ─── Skeleton Card ─────────────────────────────────────────────────────────────
-
-const SkeletonCard = () => (
-  <div className="bg-white rounded-2xl overflow-hidden shadow-md animate-pulse">
-    <div className="w-full h-[270px] bg-gray-200" />
-    <div className="p-4 space-y-3">
-      <div className="h-4 bg-gray-200 rounded w-3/4" />
-      <div className="h-3 bg-gray-200 rounded w-1/2" />
-      <div className="h-3 bg-gray-200 rounded w-full" />
-      <div className="h-3 bg-gray-200 rounded w-5/6" />
-      <div className="h-9 bg-gray-200 rounded-xl mt-4" />
-    </div>
-  </div>
-);
+import BookCardSkeleton from "@/app/components/BookCardSkeleton";
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 
@@ -129,10 +89,12 @@ const Favorites = () => {
   // ── API Functions ──────────────────────────────────────────────────────────
   const getFavoritesBooksFn = async () => {
     setLoading(true);
+    setError(null);
     try {
       const data = await getFavoritesBooks();
       setFavoritesBooks(data);
     } catch (err) {
+      console.log(err);
       setError(err.message);
       toast.error(err.message);
     } finally {
@@ -396,12 +358,13 @@ const Favorites = () => {
             {error}
           </div>
         )}
+        {console.log(error)}
 
         {/* ── Skeleton Loading ─────────────────────────────────────── */}
         {loading && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {Array.from({ length: 6 }).map((_, i) => (
-              <SkeletonCard key={i} />
+              <BookCardSkeleton key={i} />
             ))}
           </div>
         )}
