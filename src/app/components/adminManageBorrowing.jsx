@@ -24,6 +24,9 @@
 import React, { useEffect, useState } from "react";
 import { getBorrowedManagement } from "../../../lib/admin/borrowManagement";
 import { approveReturn } from "../../../lib/admin/approveReturn";
+import { returnBook } from "../../../lib/admin/returnBook";
+import { approveExtension } from "../../../lib/admin/approveExtension";
+import { rejectExtension } from "../../../lib/admin/rejectExtension";
 import LoadingSpinner from "../UI/LoadingSpinner";
 import { toast } from "sonner";
 import { Search, X } from "lucide-react";
@@ -59,7 +62,17 @@ const AdminManageBorrowing = () => {
    * Allows specific button to show loading spinner while processing
    * @type {number|null}
    */
+  /** Loading state for approve-return operation — stores the borrow ID being processed */
   const [loading, setLoading] = useState(null);
+
+  /** Loading state for direct admin return — stores the borrow ID being processed */
+  const [returnLoading, setReturnLoading] = useState(null);
+
+  /** Loading state for approve extension */
+  const [approveExtLoading, setApproveExtLoading] = useState(null);
+
+  /** Loading state for reject extension */
+  const [rejectExtLoading, setRejectExtLoading] = useState(null);
 
   // ─── Search / filter state
   const [searchUsername, setSearchUsername] = useState("");
@@ -101,12 +114,44 @@ const AdminManageBorrowing = () => {
   const approveReturnFn = async (approveId) => {
     try {
       await approveReturn(approveId);
-      // Refresh borrowing list to update status and dates
       getBorrowedMgmtFn();
       toast.success("تمت الموافقة على الإرجاع");
     } catch (error) {
-      console.log(error);
       toast.error("حدث خطأ اثناء الموافقة على الإرجاع " + error.message);
+    }
+  };
+
+  /**
+   * Forces a book return without requiring a user return request.
+   * @param {number} borrowId - The borrow record ID
+   */
+  const returnBookFn = async (borrowId) => {
+    try {
+      await returnBook(borrowId);
+      getBorrowedMgmtFn();
+      toast.success("تم إرجاع الكتاب بنجاح");
+    } catch (error) {
+      toast.error("حدث خطأ أثناء الإرجاع: " + error.message);
+    }
+  };
+
+  const approveExtensionFn = async (borrowId) => {
+    try {
+      await approveExtension(borrowId);
+      getBorrowedMgmtFn();
+      toast.success("تمت الموافقة على طلب التمديد");
+    } catch (error) {
+      toast.error("حدث خطأ أثناء قبول التمديد: " + error.message);
+    }
+  };
+
+  const rejectExtensionFn = async (borrowId) => {
+    try {
+      await rejectExtension(borrowId);
+      getBorrowedMgmtFn();
+      toast.success("تم رفض طلب التمديد");
+    } catch (error) {
+      toast.error("حدث خطأ أثناء رفض التمديد: " + error.message);
     }
   };
 
@@ -300,30 +345,86 @@ const AdminManageBorrowing = () => {
                       </span>
                     </td>
 
-                    {/* Actions Column - Approve Return Button */}
-                    <td className=" p-2 py-4">
-                      {/* Show loading spinner if this specific record is being processed */}
-                      {loading === borrow.id ? (
-                        <LoadingSpinner />
-                      ) : (
-                        // Approve Return Button
-                        // Only enabled when return_request is true
-                        <button
-                          className={`bg-gray-100 font-medium border border-gray-300 py-1.5 px-3 text-sm rounded-md text-blue-950 transition-colors duration-150  ${
-                            !borrow.return_request
-                              ? "text-gray-300 cursor-not-allowed"
-                              : "hover:bg-accent hover:text-white cursor-pointer"
-                          }`}
-                          disabled={!borrow.return_request}
-                          onClick={async () => {
-                            setLoading(borrow.id);
-                            await approveReturnFn(borrow.id);
-                            setLoading(null);
-                          }}
-                        >
-                          تأكيد الإرجاع
-                        </button>
-                      )}
+                    {/* Actions Column */}
+                    <td className="p-2 py-4">
+                      <div className="flex flex-col items-center gap-2">
+                        {/* Row 1: Approve Return + Direct Return */}
+                        <div className="flex items-center gap-2">
+                          {/* Approve Return — only when user has requested */}
+                          {loading === borrow.id ? (
+                            <LoadingSpinner />
+                          ) : (
+                            <button
+                              className={`font-medium border py-1.5 px-3 text-sm rounded-md transition-colors duration-150 ${
+                                !borrow.return_request
+                                  ? "bg-gray-100 border-gray-300 text-gray-300 cursor-not-allowed"
+                                  : "bg-gray-100 border-gray-300 text-blue-950 hover:bg-accent hover:text-white cursor-pointer"
+                              }`}
+                              disabled={!borrow.return_request}
+                              onClick={async () => {
+                                setLoading(borrow.id);
+                                await approveReturnFn(borrow.id);
+                                setLoading(null);
+                              }}
+                            >
+                              تأكيد الإرجاع
+                            </button>
+                          )}
+
+                          {/* Direct Return */}
+                          {returnLoading === borrow.id ? (
+                            <LoadingSpinner />
+                          ) : (
+                            <button
+                              className="font-medium border border-rose-300 bg-rose-50 text-rose-600 py-1.5 px-3 text-sm rounded-md hover:bg-rose-600 hover:text-white transition-colors duration-150 cursor-pointer"
+                              onClick={async () => {
+                                setReturnLoading(borrow.id);
+                                await returnBookFn(borrow.id);
+                                setReturnLoading(null);
+                              }}
+                            >
+                              إرجاع مباشر
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Row 2: Extension approve/reject — only when extension requested */}
+                        {borrow.extension_request && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-amber-600 font-semibold whitespace-nowrap">
+                              طلب تمديد:
+                            </span>
+                            {approveExtLoading === borrow.id ? (
+                              <LoadingSpinner />
+                            ) : (
+                              <button
+                                className="font-medium border border-emerald-400 bg-emerald-50 text-emerald-700 py-1 px-2.5 text-xs rounded-md hover:bg-emerald-600 hover:text-white transition-colors duration-150 cursor-pointer"
+                                onClick={async () => {
+                                  setApproveExtLoading(borrow.id);
+                                  await approveExtensionFn(borrow.id);
+                                  setApproveExtLoading(null);
+                                }}
+                              >
+                                قبول
+                              </button>
+                            )}
+                            {rejectExtLoading === borrow.id ? (
+                              <LoadingSpinner />
+                            ) : (
+                              <button
+                                className="font-medium border border-rose-300 bg-rose-50 text-rose-600 py-1 px-2.5 text-xs rounded-md hover:bg-rose-600 hover:text-white transition-colors duration-150 cursor-pointer"
+                                onClick={async () => {
+                                  setRejectExtLoading(borrow.id);
+                                  await rejectExtensionFn(borrow.id);
+                                  setRejectExtLoading(null);
+                                }}
+                              >
+                                رفض
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

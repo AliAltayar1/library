@@ -8,6 +8,7 @@ import {
   Star,
   ChevronLeft,
 } from "lucide-react";
+import Image from "next/image";
 
 /* ── Decorative particles data ── */
 const PARTICLES = [
@@ -110,9 +111,7 @@ export default function HeroSection() {
         <div className="flex-1 flex flex-col gap-6 text-center lg:text-right">
           {/* Badge */}
           <div className="animate-fadeIn flex justify-center lg:justify-end">
-            <span
-              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold text-accent-light bg-accent/15 border border-accent/30"
-            >
+            <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold text-accent-light bg-accent/15 border border-accent/30">
               <Sparkles className="w-3.5 h-3.5" />
               مكتبتك الرقمية الجديدة
             </span>
@@ -187,12 +186,19 @@ export default function HeroSection() {
                 background: "linear-gradient(135deg, #D4930A 0%, #f6c54e 85%)",
               }}
             >
-              <BookOpen className="w-20 h-20 sm:w-24 sm:h-24 opacity-[0.85] text-primary" />
+              <div className="relative w-20 h-20 sm:w-30 sm:h-30 opacity-[0.85] text-primary rounded-2xl overflow-hidden mix-blend-multiply">
+                <Image
+                  alt="lib-logo"
+                  src={"/lib-logo-blue.jpg"}
+                  fill
+                  className="object-contain"
+                />
+              </div>
               <div className="text-center px-6">
-                <p className="font-bold text-xl sm:text-2xl text-primary">
-                  مكتبتك
+                <p className="font-bold text-xl sm:text-2xl text-primary/80">
+                  مكتبة
                 </p>
-                <p className="font-medium text-sm text-primary/70">الرقمية</p>
+                <p className="font-medium text-sm text-primary/70">خير جليس</p>
               </div>
               {/* Decorative lines */}
               <div className="flex flex-col gap-1.5 w-24 opacity-30">

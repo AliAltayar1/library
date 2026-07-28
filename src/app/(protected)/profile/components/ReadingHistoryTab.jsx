@@ -1,11 +1,12 @@
 "use client";
 
-import { BookOpen, RotateCcw, TrendingUp } from "lucide-react";
+import { BookOpen, RotateCcw, Stars, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import BookRow from "./BookRow";
 import SectionTitle from "./SectionTitle";
 import EmptyState from "./EmptyState";
 import LoadingSpinner from "@/app/UI/LoadingSpinner";
+import StarRating from "./StarRating";
 
 const ReadingHistoryTab = ({
   booksLog,
@@ -15,6 +16,7 @@ const ReadingHistoryTab = ({
   borrowBookLoading,
   setBorrowBookLoading,
   borrowBookFn,
+  availableBooks,
 }) => {
   if (booksLogLoading) {
     return (
@@ -37,6 +39,12 @@ const ReadingHistoryTab = ({
             image={log.book.image}
             status={`مُرجَع${log.return_date ? " · " + log.return_date : ""}`}
             statusClass="bg-emerald-600"
+            extra={
+              <div className="flex items-center justify-between pt-3 border-t border-slate-100 mt-1">
+                <span className="text-xs font-semibold text-slate-500">تقييمك للكتاب:</span>
+                <StarRating bookId={log.book.id} initialRating={Math.round(log.book.average_rating || 0)} />
+              </div>
+            }
             actions={
               <>
                 <Link href={`/books/${log.book.id}`}>
@@ -55,6 +63,15 @@ const ReadingHistoryTab = ({
                   >
                     <BookOpen className="w-3 h-3" />
                     مُستعار حاليًا
+                  </button>
+                ) : availableBooks === 0 ? (
+                  <button
+                    disabled
+                    title="لقد وصلت إلى الحد الأقصى للاستعارة"
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold opacity-50 cursor-not-allowed bg-rose-50 text-rose-500"
+                  >
+                    <Stars className="w-3 h-3" />
+                    الحد الأقصى
                   </button>
                 ) : (
                   <button

@@ -22,10 +22,12 @@ import {
   User,
   Layers,
   MapPin,
-  ScrollText,
+  MessageSquare,
   Send,
   ChevronDown,
   ChevronUp,
+  Star,
+  Stars,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -33,6 +35,7 @@ import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { getBook } from "../../../../../lib/books/getBooks";
 import { borrowBook } from "../../../../../lib/user/borrow";
+import { reserveBook } from "../../../../../lib/user/reserve";
 import { profileBorrowed } from "../../../../../lib/user/profileBorrowed";
 import { toast } from "sonner";
 import LoadingSpinner from "@/app/UI/LoadingSpinner";
@@ -55,7 +58,6 @@ const Book = () => {
   const [borrowLoading, setBorrorLoading] = useState(false);
   const [favLoading, setFavLoading] = useState(false);
   const [borrowedBooks, setBorrowedBooks] = useState([]);
-
   // ─── Summary state ────────────────────────────────────────────
   const [summaries, setSummaries] = useState([]);
   const [summaryText, setSummaryText] = useState("");
@@ -116,6 +118,18 @@ const Book = () => {
     }
   };
 
+  const reserveBookFn = async (bookId) => {
+    setBorrorLoading(true);
+    try {
+      await reserveBook(bookId);
+      toast.success("تم حجز الكتاب مسبقاً بنجاح!");
+    } catch (error) {
+      toast.error("حدث خطأ أثناء الحجز: " + error.message);
+    } finally {
+      setBorrorLoading(false);
+    }
+  };
+
   // ─── Summary API ──────────────────────────────────────────────
   const fetchSummaries = async () => {
     setSummaryLoading(true);
@@ -131,17 +145,17 @@ const Book = () => {
 
   const handleSubmitSummary = async () => {
     if (!user) {
-      toast.error("يرجى تسجيل الدخول أولاً لإضافة ملخص");
+      toast.error("يرجى تسجيل الدخول أولاً لإضافة تعليق");
       return;
     }
     if (!summaryText.trim()) {
-      toast.error("يرجى كتابة الملخص قبل الإرسال");
+      toast.error("يرجى كتابة التعليق قبل الإرسال");
       return;
     }
     setSubmittingSummary(true);
     try {
       await addSummary(id, summaryText.trim());
-      toast.success("تمت إضافة ملخصك بنجاح!");
+      toast.success("تم نشر تعليقك بنجاح!");
       setSummaryText("");
       fetchSummaries();
     } catch (err) {
@@ -254,6 +268,23 @@ const Book = () => {
               بقلم {book.author?.name || "—"}
             </p>
 
+            {/* Star rating */}
+            <div className="flex items-center gap-1 mt-3">
+              {[1, 2, 3, 4, 5].map((s) => (
+                <Star
+                  key={s}
+                  className={`w-4 h-4 ${
+                    s <= Math.round(book.average_rating || 0)
+                      ? "text-amber-400 fill-amber-400"
+                      : "text-white/20"
+                  }`}
+                />
+              ))}
+              <span className="text-xs font-medium mr-1.5" style={{ color: "rgba(255,255,255,0.7)" }}>
+                {Number(book.average_rating || 0).toFixed(1)} ({book.rating_count || 0} تقييم)
+              </span>
+            </div>
+
             {/* Availability badge */}
             <div className="mt-4 inline-flex">
               <span
@@ -340,43 +371,88 @@ const Book = () => {
                   boxShadow: "0 4px 24px rgba(15,27,60,0.07)",
                 }}
               >
-                {/* Borrow button */}
+                {/* Borrow / Reserve button */}
                 {borrowLoading ? (
                   <div className="flex justify-center py-2">
                     <LoadingSpinner />
                   </div>
                 ) : (
-                  <button
-                    disabled={!book.is_avaiable || isBorrowed}
-                    onClick={() => borrowBookFn(book.id)}
-                    className="flex items-center justify-center gap-2 w-full py-3 rounded-xl font-bold text-sm transition-all duration-200"
-                    style={{
-                      background: isBorrowed
-                        ? "rgba(34,197,94,0.10)"
-                        : book.is_avaiable
-                          ? `linear-gradient(135deg, ${NAVY} 0%, ${NAVY2} 100%)`
-                          : "#cbd5e1",
-                      color: isBorrowed ? "#16a34a" : "white",
-                      border: isBorrowed
-                        ? "1.5px solid rgba(34,197,94,0.30)"
-                        : "none",
-                      cursor:
-                        book.is_avaiable && !isBorrowed
-                          ? "pointer"
-                          : "not-allowed",
-                      boxShadow:
-                        book.is_avaiable && !isBorrowed
-                          ? "0 4px 16px rgba(15,27,60,0.25)"
-                          : "none",
-                    }}
-                  >
-                    <BookCheck className="w-4 h-4" />
-                    {isBorrowed
-                      ? "مُستعار بالفعل"
-                      : book.is_avaiable
-                        ? "استعارة الكتاب"
-                        : "غير متاح حاليًا"}
-                  </button>
+                  (() => {
+                    const atLimit =
+                      book.available_books !== undefined &&
+                      book.available_books === 0;
+
+                    if (!book.is_avaiable) {
+                      return (
+                        <button
+                          onClick={() => reserveBookFn(book.id)}
+                          className="flex items-center justify-center gap-2 w-full py-3 rounded-xl font-bold text-sm transition-all duration-200 cursor-pointer shadow-[0_4px_16px_rgba(212,147,10,0.25)]"
+                          style={{
+                            background: `linear-gradient(135deg, ${GOLD} 0%, ${GOLD2} 100%)`,
+                            color: NAVY,
+                          }}
+                        >
+                          <BookCheck className="w-4 h-4" />
+                          حجز مسبق (الكتاب مُستعار)
+                        </button>
+                      );
+                    }
+
+                    const canBorrow = !isBorrowed && !atLimit;
+                    return (
+                      <>
+                        <button
+                          disabled={!canBorrow}
+                          onClick={() => borrowBookFn(book.id)}
+                          className="flex items-center justify-center gap-2 w-full py-3 rounded-xl font-bold text-sm transition-all duration-200"
+                          style={{
+                            background: isBorrowed
+                              ? "rgba(34,197,94,0.10)"
+                              : atLimit
+                                ? "rgba(239,68,68,0.08)"
+                                : `linear-gradient(135deg, ${NAVY} 0%, ${NAVY2} 100%)`,
+                            color: isBorrowed
+                              ? "#16a34a"
+                              : atLimit
+                                ? "#dc2626"
+                                : "white",
+                            border: isBorrowed
+                              ? "1.5px solid rgba(34,197,94,0.30)"
+                              : atLimit
+                                ? "1.5px solid rgba(239,68,68,0.25)"
+                                : "none",
+                            cursor: canBorrow ? "pointer" : "not-allowed",
+                            boxShadow: canBorrow
+                              ? "0 4px 16px rgba(15,27,60,0.25)"
+                              : "none",
+                          }}
+                        >
+                          {atLimit ? (
+                            <Stars className="w-4 h-4" />
+                          ) : (
+                            <BookCheck className="w-4 h-4" />
+                          )}
+                          {isBorrowed
+                            ? "مُستعار بالفعل"
+                            : atLimit
+                              ? "وصلت للحد الأقصى"
+                              : "استعارة الكتاب"}
+                        </button>
+                        {atLimit && (
+                          <p className="text-xs text-center text-rose-500 -mt-1">
+                            أرجع كتاباً من{" "}
+                            <a
+                              href="/profile"
+                              className="underline font-semibold"
+                            >
+                              ملفك الشخصي
+                            </a>{" "}
+                            لتتمكن من الاستعارة.
+                          </p>
+                        )}
+                      </>
+                    );
+                  })()
                 )}
 
                 {/* Favorite button */}
@@ -495,7 +571,7 @@ const Book = () => {
                 </div>
               </div>
 
-              {/* ── Summaries Section ──────────────────────────── */}
+              {/* ── Comments Section ──────────────────────────── */}
               <motion.div
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -516,8 +592,8 @@ const Book = () => {
                         background: `linear-gradient(180deg, ${GOLD} 0%, ${GOLD2} 100%)`,
                       }}
                     />
-                    <ScrollText className="w-5 h-5 text-accent" />
-                    ملخصات القراء
+                    <MessageSquare className="w-5 h-5 text-accent" />
+                    تعليقات وآراء القراء
                     {summaries.length > 0 && (
                       <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-primary/[10%] text-primary-light">
                         {summaries.length}
@@ -538,7 +614,7 @@ const Book = () => {
 
                 {showSummaries && (
                   <>
-                    {/* Add summary form */}
+                    {/* Add comment form */}
                     <div
                       className="rounded-xl p-4 mb-5"
                       style={{
@@ -549,7 +625,7 @@ const Book = () => {
                       <textarea
                         value={summaryText}
                         onChange={(e) => setSummaryText(e.target.value)}
-                        placeholder="اكتب ملخصك هنا..."
+                        placeholder="شاركنا رأيك وتعليقك حول الكتاب..."
                         rows={4}
                         disabled={!user}
                         className="w-full py-2.5 px-3 border border-gray-200 rounded-xl outline-none
@@ -571,14 +647,14 @@ const Book = () => {
                           >
                             <Send className="w-3.5 h-3.5" />
                             {submittingSummary
-                              ? "جارٍ الإرسال..."
-                              : "إرسال الملخص"}
+                              ? "جارٍ النشر..."
+                              : "نشر التعليق"}
                           </button>
                         }
                       </div>
                     </div>
 
-                    {/* Summaries list */}
+                    {/* Comments list */}
                     {summaryLoading && (
                       <div className="flex justify-center py-6">
                         <LoadingSpinner />
@@ -587,12 +663,12 @@ const Book = () => {
 
                     {!summaryLoading && summaries.length === 0 && (
                       <div className="text-center text-gray-400 py-8">
-                        <ScrollText className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                        <MessageSquare className="w-10 h-10 mx-auto mb-2 opacity-30" />
                         <p className="text-sm font-medium">
-                          لا توجد ملخصات بعد
+                          لا توجد تعليقات بعد
                         </p>
                         <p className="text-xs mt-1">
-                          كن اول من يكتب ملخصاً لهذا الكتاب
+                          كن أول من يشارك رأيه حول هذا الكتاب
                         </p>
                       </div>
                     )}
@@ -624,7 +700,7 @@ const Book = () => {
                                 </span>
                               )}
                             </div>
-                            {/* Summary text */}
+                            {/* Comment text */}
                             <p
                               className="text-sm text-gray-600 leading-relaxed break-words"
                               style={{

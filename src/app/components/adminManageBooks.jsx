@@ -15,7 +15,16 @@
  */
 
 import React, { useEffect, useState } from "react";
-import { Plus, X, Pencil, BookOpen, ScrollText, Trash2, Search } from "lucide-react";
+import {
+  Plus,
+  X,
+  Pencil,
+  BookOpen,
+  ScrollText,
+  Trash2,
+  Search,
+  FileDown,
+} from "lucide-react";
 import { getBooks } from "../../../lib/admin/getBooks";
 import { editBookApi } from "../../../lib/admin/editBook";
 import { addBookApi } from "../../../lib/admin/addBook";
@@ -25,6 +34,7 @@ import { archiveBook } from "../../../lib/admin/archiveBook";
 import { unarchiveBook } from "../../../lib/admin/unarchiveBook";
 import { getAdminBookSummaries } from "../../../lib/admin/getBookSummaries";
 import { deleteBookSummary } from "../../../lib/admin/deleteBookSummary";
+import { exportBooks } from "../../../lib/admin/exportBooks";
 import ArchiveUnarchiveBook from "../UI/ArchiveUnarchiveBtn";
 import LoadingSpinner from "../UI/LoadingSpinner";
 import { toast } from "sonner";
@@ -62,6 +72,9 @@ const AdminManageBooks = () => {
   // ─── Search / filter state
   const [searchAuthor, setSearchAuthor] = useState("");
   const [searchCategory, setSearchCategory] = useState("");
+
+  // ─── Export state
+  const [exportLoading, setExportLoading] = useState(false);
 
   // ─── Summaries modal state
   const [summariesModal, setSummariesModal] = useState(null); // { bookId, title }
@@ -185,7 +198,7 @@ const AdminManageBooks = () => {
       console.log(data);
       setSummaries(Array.isArray(data) ? data : (data.results ?? []));
     } catch (err) {
-      toast.error("تعذّر جلب الملخصات: " + err.message);
+      toast.error("تعذّر جلب التعليقات: " + err.message);
     } finally {
       setSummariesLoading(false);
     }
@@ -211,6 +224,21 @@ const AdminManageBooks = () => {
     if (searchAuthor.trim()) filters.author = searchAuthor.trim();
     if (searchCategory.trim()) filters.category = searchCategory.trim();
     getBooksFn(filters);
+  };
+
+  const handleExport = async () => {
+    setExportLoading(true);
+    try {
+      const filters = {};
+      if (searchAuthor.trim()) filters.author = searchAuthor.trim();
+      if (searchCategory.trim()) filters.category = searchCategory.trim();
+      await exportBooks(filters);
+      toast.success("تم تصدير الكتب بنجاح ✅");
+    } catch (err) {
+      toast.error("فشل التصدير: " + err.message);
+    } finally {
+      setExportLoading(false);
+    }
   };
 
   const handleClearFilters = () => {
@@ -243,7 +271,7 @@ const AdminManageBooks = () => {
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h2 className="text-lg font-bold text-primary">
-                  ملخصات الكتاب
+                  تعليقات الكتاب
                 </h2>
                 <p className="text-sm text-gray-400 mt-0.5 truncate max-w-[340px]">
                   {summariesModal.title}
@@ -262,7 +290,7 @@ const AdminManageBooks = () => {
             {!summariesLoading && summaries.length === 0 && (
               <div className="text-center text-gray-400 py-10">
                 <ScrollText className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                <p className="font-medium">لا توجد ملخصات بعد</p>
+                <p className="font-medium">لا توجد تعليقات بعد</p>
               </div>
             )}
 
@@ -470,24 +498,45 @@ const AdminManageBooks = () => {
           </p>
         </div>
 
-        <button
-          onClick={openAdd}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold
-                     text-sm text-white cursor-pointer transition-all duration-200
-                     hover:opacity-90 hover:-translate-y-0.5 active:scale-95 shadow-[0_4px_16px_rgba(15,27,60,0.20)]"
-          style={{
-            background: `linear-gradient(135deg, ${NAVY} 0%, ${NAVY2} 100%)`,
-          }}
-        >
-          <Plus className="w-4 h-4" />
-          إضافة كتاب جديد
-        </button>
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Export Excel */}
+          <button
+            onClick={handleExport}
+            disabled={exportLoading}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold
+                       text-sm cursor-pointer transition-all duration-200
+                       hover:-translate-y-0.5 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed
+                       border border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100"
+          >
+            <FileDown className="w-4 h-4" />
+            {exportLoading ? "جارٍ التصدير..." : "تصدير Excel"}
+          </button>
+
+          {/* Add book */}
+          <button
+            onClick={openAdd}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold
+                       text-sm text-white cursor-pointer transition-all duration-200
+                       hover:opacity-90 hover:-translate-y-0.5 active:scale-95 shadow-[0_4px_16px_rgba(15,27,60,0.20)]"
+            style={{
+              background: `linear-gradient(135deg, ${NAVY} 0%, ${NAVY2} 100%)`,
+            }}
+          >
+            <Plus className="w-4 h-4" />
+            إضافة كتاب جديد
+          </button>
+        </div>
       </div>
 
       {/* ============ Search / Filter Bar ============ */}
-      <form onSubmit={handleSearch} className="mt-8 flex flex-wrap items-end gap-3">
+      <form
+        onSubmit={handleSearch}
+        className="mt-8 flex flex-wrap items-end gap-3"
+      >
         <div className="flex-1 min-w-[180px]">
-          <label className="block text-xs font-semibold text-gray-500 mb-1">المؤلف</label>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">
+            المؤلف
+          </label>
           <div className="relative">
             <input
               type="text"
@@ -502,7 +551,9 @@ const AdminManageBooks = () => {
           </div>
         </div>
         <div className="flex-1 min-w-[180px]">
-          <label className="block text-xs font-semibold text-gray-500 mb-1">الفئة</label>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">
+            الفئة
+          </label>
           <div className="relative">
             <input
               type="text"
@@ -681,7 +732,7 @@ const AdminManageBooks = () => {
                                      hover:-translate-y-0.5 whitespace-nowrap bg-primary/[8%] text-primary-light border border-primary/[12%]"
                         >
                           <ScrollText className="w-3.5 h-3.5" />
-                          ملخصات
+                          تعليقات
                         </button>
 
                         {/* Archive / Unarchive */}

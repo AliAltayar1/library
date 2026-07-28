@@ -1,6 +1,6 @@
 // ─── BookCard ──────────────────────────────────────────────────────────────────
 
-import { BookOpen, Heart, User } from "lucide-react";
+import { BookOpen, Heart, Star, User } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -75,10 +75,27 @@ const BookCard = ({
         </h3>
 
         {/* Author */}
-        <p className="text-gray-500 text-sm mb-3 flex items-center gap-1.5">
+        <p className="text-gray-500 text-sm mb-2 flex items-center gap-1.5">
           <User size={13} className="text-gray-400" />
           {book.author?.name || "مؤلف غير معروف"}
         </p>
+
+        {/* Star rating */}
+        <div className="flex items-center gap-0.5 mb-3">
+          {[1, 2, 3, 4, 5].map((s) => (
+            <Star
+              key={s}
+              className={`w-3.5 h-3.5 ${
+                s <= Math.round(book.average_rating || 0)
+                  ? "text-amber-400 fill-amber-400"
+                  : "text-slate-200"
+              }`}
+            />
+          ))}
+          <span className="text-xs text-gray-400 mr-1">
+            ({book.rating_count || 0})
+          </span>
+        </div>
 
         {/* Description */}
         <p className="text-gray-500 text-sm line-clamp-2 mb-5 flex-1">
@@ -110,7 +127,6 @@ const BookCard = ({
                   ? "bg-red-50 border-red-300 text-red-500 hover:bg-red-100"
                   : "border-gray-200 text-gray-400 hover:border-red-300 hover:text-red-400 hover:bg-red-50"
               }`}
-              aria-label={isFav ? "إزالة من المفضلة" : "إضافة للمفضلة"}
             >
               <motion.div
                 animate={isFav ? { scale: [1, 1.4, 1] } : { scale: 1 }}

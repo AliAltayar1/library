@@ -36,8 +36,6 @@ import { getBooks } from "../../../../lib/books/getBooks";
 import LoadingSpinner from "@/app/UI/LoadingSpinner";
 import { ChatMessage } from "@/app/components/chatMarkdown";
 
-
-
 const msgVariants = {
   hidden: { opacity: 0, y: 12, scale: 0.97 },
   visible: {

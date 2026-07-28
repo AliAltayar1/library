@@ -34,7 +34,7 @@ export default function Home() {
   const [error, setError] = useState(null);
   const [cateLoading, setCateLoading] = useState(false);
   const [cateError, setCateError] = useState(null);
-
+  console.log(books);
   const fetchBooks = async () => {
     setLoading(true);
     try {

@@ -17,6 +17,7 @@ import BookCardSkeleton from "../../components/BookCardSkeleton";
 import BookCard from "./_components/BookCard";
 import BooksPagination from "./_components/BooksPagination";
 import { containerVariants } from "@/app/lib/motionVariants";
+import RecommendedBooks from "../../components/RecommendedBooks";
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
@@ -234,6 +235,11 @@ const Books = () => {
             onPageChange={handlePageChange}
           />
         )}
+
+        {/* Recommended Books */}
+        <div className="mt-10">
+          <RecommendedBooks />
+        </div>
       </div>
     </div>
   );
